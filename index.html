@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>RiftGauge</title>
+
+<!-- PWA meta -->
+<meta name="application-name" content="RiftGauge">
+<meta name="description" content="Riftbound Victory Point Tracker">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="RiftGauge">
+<meta name="theme-color" content="#06040f">
+<meta name="msapplication-TileColor" content="#06040f">
+<meta name="msapplication-navbutton-color" content="#06040f">
+
+<!-- Inline PWA manifest as data URI -->
+<link rel="manifest" href="data:application/manifest+json,{
+  %22name%22:%22RiftGauge%22,
+  %22short_name%22:%22RiftGauge%22,
+  %22description%22:%22Riftbound%20Victory%20Point%20Tracker%22,
+  %22start_url%22:%22.%22,
+  %22display%22:%22standalone%22,
+  %22orientation%22:%22landscape%22,
+  %22background_color%22:%22%2306040f%22,
+  %22theme_color%22:%22%2306040f%22,
+  %22icons%22:[{
+    %22src%22:%22data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20512%20512'%3E%3Crect%20width='512'%20height='512'%20fill='%2306040f'/%3E%3Cpolygon%20points='256,60%20452,180%20452,332%20256,452%2060,332%2060,180'%20fill='none'%20stroke='%23c9a84c'%20stroke-width='18'/%3E%3Cpolygon%20points='256,110%20402,195%20402,317%20256,402%20110,317%20110,195'%20fill='%230d0920'/%3E%3Ctext%20x='256'%20y='310'%20text-anchor='middle'%20font-family='serif'%20font-weight='900'%20font-size='200'%20fill='%23c9a84c'%3ERG%3C/text%3E%3C/svg%3E%22,
+    %22sizes%22:%22any%22,
+    %22type%22:%22image/svg+xml%22,
+    %22purpose%22:%22any%20maskable%22
+  }]
+}">
+
+<!-- Apple touch icon (inline SVG as data URI) -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%2306040f'/><polygon points='256,60 452,180 452,332 256,452 60,332 60,180' fill='none' stroke='%23c9a84c' stroke-width='18'/><text x='256' y='310' text-anchor='middle' font-family='serif' font-weight='900' font-size='200' fill='%23c9a84c'>RG</text></svg>">
+
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --void: #06040f;
+    --panel: #0e0b1e;
+    --border: #2e1f5e;
+    --gold: #c9a84c;
+    --gold-bright: #f0c94a;
+    --gold-dim: #7a5c1a;
+    --hex: #00c8ff;
+    --danger: #ff4a4a;
+    --text: #e8dfc8;
+    --text-dim: #7a7060;
+    --divider-h: 64px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: var(--void);
+    font-family: 'Crimson Pro', Georgia, serif;
+    color: var(--text);
+    /* Safe area insets for notch/home bar on iOS */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(46,31,94,0.09) 60px),
+      repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(46,31,94,0.09) 60px);
+    pointer-events: none; z-index: 0;
+  }
+
+  #layout {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    z-index: 1;
+  }
+
+  .half {
+    flex: 1; min-height: 0;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .half .domain-bg { position: absolute; inset: 0; pointer-events: none; transition: background 0.5s ease; }
+  .half.top    { transform: rotate(180deg); }
+  .half.bottom { transform: none; }
+  .half.top.flipped    { transform: none; }
+  .half.bottom.flipped { transform: rotate(180deg); }
+  .half .danger-overlay {
+    display: none; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(255,74,74,0.1) 0%, transparent 70%);
+    animation: danger-pulse 1.6s ease-in-out infinite;
+  }
+  .half.at-final .danger-overlay { display: block; }
+  @keyframes danger-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── DIVIDER ── */
+  #divider {
+    flex-shrink: 0;
+    height: auto; min-height: 52px;
+    background: rgba(4,3,12,0.97);
+    border-top: 1px solid #1a1035; border-bottom: 1px solid #1a1035;
+    display: flex; align-items: center; justify-content: center;
+    gap: clamp(5px, 1.2vw, 10px);
+    flex-wrap: nowrap;
+    overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    position: relative; z-index: 10;
+    padding: 8px clamp(8px, 2vw, 14px);
+    /* Scale everything inside with the viewport width */
+    font-size: clamp(0.48rem, 1.3vw, 0.72rem);
+  }
+  #divider::-webkit-scrollbar { display: none; }
+  #divider::before, #divider::after {
+    content: ''; position: absolute; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold-dim) 20%, var(--gold) 50%, var(--gold-dim) 80%, transparent);
+    opacity: 0.4;
+  }
+  #divider::before { top: 0; } #divider::after { bottom: 0; }
+
+  .div-title {
+    font-family: 'Cinzel', serif; font-weight: 900;
+    font-size: 1.4em;
+    letter-spacing: 0.18em; white-space: nowrap; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--gold-bright), var(--gold));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    filter: drop-shadow(0 0 10px rgba(201,168,76,0.4));
+  }
+  .rune-gem {
+    width: 1.1em; height: 1.1em; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--hex), #7c3fc4);
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    box-shadow: 0 0 8px var(--hex);
+    animation: pulse-gem 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse-gem { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.8)} }
+  .div-sep { width: 1px; height: 2em; background: #2a1a50; flex-shrink: 0; }
+  .ctrl-label {
+    font-family: 'Cinzel', serif; font-size: 0.9em;
+    letter-spacing: 0.14em; color: var(--text-dim);
+    text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+  }
+  .mode-select {
+    background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); font-family: 'Cinzel', serif; font-size: 0.95em;
+    padding: 0.5em 2.8em 0.5em 0.8em; border-radius: 4px; cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%237a5c1a'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 0.6em center;
+    outline: none; letter-spacing: 0.04em; flex-shrink: 0; white-space: nowrap;
+  }
+  .btn-reset {
+    background: linear-gradient(135deg, #2a0a0a, #3a0e0e);
+    border: 1px solid #6b1e1e; color: #ff8a8a;
+    font-family: 'Cinzel', serif; font-size: 0.9em;
+    letter-spacing: 0.1em; padding: 0.5em 1.2em; border-radius: 4px;
+    cursor: pointer; text-transform: uppercase; white-space: nowrap;
+    flex-shrink: 0; transition: all 0.18s;
+  }
+  .btn-reset:hover { background: linear-gradient(135deg,#3d1010,#551414); border-color: #ff4a4a; color: #ffb3b3; }
+
+  /* Aspirant toggle */
+  .aspirant-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; flex-shrink: 0; user-select: none; }
+  .aspirant-toggle input[type="checkbox"] { display: none; }
+  .aspirant-label {
+    font-family: 'Cinzel', serif; font-size: 0.9em;
+    letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap;
+    color: rgba(255,255,255,0.35); padding: 0.5em 1em; border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03);
+    transition: all 0.2s;
+  }
+  .aspirant-toggle input:checked + .aspirant-label {
+    color: #a8e0ff; border-color: rgba(100,200,255,0.45); background: rgba(30,100,180,0.25);
+    box-shadow: 0 0 10px rgba(60,160,255,0.2); text-shadow: 0 0 8px rgba(100,200,255,0.5);
+  }
+  .aspirant-toggle:hover .aspirant-label { color: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.22); }
+
+  /* ── PLAYER PANEL ── */
+  .player-panel {
+    display: flex; flex-direction: row;
+    align-items: stretch; justify-content: center;
+    gap: clamp(10px, 2vw, 36px);
+    padding: clamp(6px, 1.2vh, 16px) clamp(10px, 2vw, 32px);
+    width: 100%; height: 100%;
+    position: relative; z-index: 1;
+  }
+
+  /* Left block */
+  .left-block {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 8px; min-width: 130px;
+  }
+  .player-name {
+    background: transparent; border: none;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    color: var(--text); font-family: 'Cinzel', serif;
+    font-size: clamp(0.82rem, 1.7vw, 1rem); font-weight: 600;
+    letter-spacing: 0.08em; text-align: center;
+    padding: 3px 6px 5px; outline: none; width: 145px; max-width: 100%;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .player-name:focus { border-color: rgba(255,255,255,0.35); color: #fff; }
+  .player-name::placeholder { color: var(--text-dim); font-style: italic; font-weight: 300; }
+  .player-label {
+    font-family: 'Crimson Pro', serif; font-style: italic;
+    font-size: 0.63rem; color: var(--text-dim);
+    letter-spacing: 0.15em; text-transform: uppercase;
+  }
+
+  /* Legend button */
+  .btn-legend {
+    font-family: 'Cinzel', serif; font-size: 0.52rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 5px 14px; border-radius: 4px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.55);
+    background: rgba(255,255,255,0.05);
+    transition: all 0.18s; user-select: none; white-space: nowrap;
+    width: 100%; text-align: center; max-width: 145px;
+  }
+  .btn-legend:hover { color: rgba(255,255,255,0.9); border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); }
+  .btn-legend.has-legend {
+    font-size: 0.62rem; letter-spacing: 0.06em;
+    font-weight: 600; color: #fff;
+  }
+
+  /* Domain badge pair under legend button */
+  .legend-domains {
+    display: flex; gap: 4px; justify-content: center; flex-wrap: nowrap;
+  }
+  .domain-badge {
+    font-family: 'Cinzel', serif; font-size: 0.42rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 12px;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+
+  /* Flip button */
+  .btn-flip {
+    font-family: 'Cinzel', serif; font-size: 0.48rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 4px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.04);
+    transition: all 0.18s; user-select: none; margin-top: 2px;
+    width: 100%; max-width: 145px; text-align: center;
+  }
+  .btn-flip:hover { border-color: rgba(255,255,255,0.3); color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.08); }
+
+  /* Score column */
+  .score-col {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: clamp(5px, 1vh, 11px);
+  }
+  .vp-display {
+    position: relative;
+    width: clamp(78px, 11vmin, 124px);
+    height: clamp(78px, 11vmin, 124px);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .vp-svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+  .vp-track { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 3; }
+  .vp-fill  { fill: none; stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset 0.4s cubic-bezier(0.4,0,0.2,1); }
+  .vp-inner { display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; }
+  .vp-number {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(1.7rem, 4.5vmin, 2.6rem);
+    font-weight: 900; line-height: 1; letter-spacing: -0.02em; color: #fff;
+  }
+  .vp-max { font-family: 'Crimson Pro', serif; font-size: 0.58rem; color: rgba(255,255,255,0.38); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 1px; }
+
+  .pip-row { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; max-width: 175px; }
+  .pip {
+    width: 9px; height: 9px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.14); background: transparent;
+    transition: background 0.22s, border-color 0.22s, box-shadow 0.22s;
+  }
+  .pip.filled { border-color: transparent; }
+  .pip.final  { background: var(--danger) !important; border-color: #ff6b6b !important; box-shadow: 0 0 8px rgba(255,74,74,0.7) !important; }
+
+  .vp-btns { display: flex; align-items: center; gap: 6px; }
+  .vp-btn {
+    border: 1px solid rgba(255,255,255,0.13);
+    background: rgba(0,0,0,0.3); color: rgba(255,255,255,0.65);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; font-family: 'Cinzel', serif;
+  }
+  .vp-btn.minus { width: 30px; height: 30px; border-radius: 50%; font-size: 1.1rem; font-weight: 300; padding-bottom: 2px; }
+  .vp-btn.minus:hover { background: rgba(180,30,30,0.4); border-color: rgba(255,80,80,0.5); color: #ff9a9a; }
+  .vp-btn.hold, .vp-btn.conquer { border-radius: 15px; padding: 4px 9px; font-size: 0.52rem; letter-spacing: 0.1em; text-transform: uppercase; flex-direction: column; gap: 1px; line-height: 1.1; }
+  .vp-btn .btn-icon  { font-size: 0.78rem; }
+  .vp-btn .btn-label { font-size: 0.48rem; letter-spacing: 0.1em; }
+  .vp-btn.hold:hover    { background: rgba(0,90,140,0.4); border-color: rgba(0,180,255,0.4); color: #7dd8ff; }
+  .vp-btn.conquer:hover { background: rgba(120,80,0,0.4); border-color: rgba(220,160,40,0.4); color: var(--gold-bright); }
+  .vp-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+  .vp-btn:disabled:hover { background: rgba(0,0,0,0.3); border-color: rgba(255,255,255,0.13); color: rgba(255,255,255,0.65); }
+
+  /* Log panel */
+  .log-panel {
+    display: flex; flex-direction: column;
+    justify-content: flex-start;
+    width: clamp(120px, 18vw, 190px); height: 100%;
+    padding: clamp(6px, 1vh, 12px) 0; gap: 5px;
+    align-self: stretch;
+  }
+  .log-title { font-family: 'Cinzel', serif; font-size: 0.5rem; letter-spacing: 0.18em; color: var(--text-dim); text-transform: uppercase; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.07); flex-shrink: 0; }
+  .log-entries { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 2px; min-height: 0; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent; }
+  .log-entries::-webkit-scrollbar { width: 3px; }
+  .log-entries::-webkit-scrollbar-track { background: transparent; }
+  .log-entries::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+  .log-entry { font-family: 'Crimson Pro', serif; font-size: 0.72rem; color: rgba(255,255,255,0.45); line-height: 1.3; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .log-entry .log-score { font-weight: 600; }
+  .log-entry .log-action-hold    { color: #5aaeff; }
+  .log-entry .log-action-conquer { color: var(--gold); }
+  .log-entry .log-action-remove  { color: #ff7070; }
+  .log-entry .log-ts { font-size: 0.58rem; color: rgba(255,255,255,0.22); display: block; margin-bottom: 1px; }
+  .log-empty { font-family: 'Crimson Pro', serif; font-style: italic; font-size: 0.7rem; color: rgba(255,255,255,0.2); text-align: center; padding-top: 8px; }
+
+  /* ── LEGEND PICKER MODAL ── */
+  #legend-modal {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(4,3,12,0.92);
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(8px);
+  }
+  #legend-modal.open { display: flex; }
+
+  .modal-box {
+    background: linear-gradient(160deg, #12102a, #0c0a1e);
+    border: 1px solid var(--border); border-radius: 10px;
+    width: min(520px, 92vw); max-height: 78vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 0 40px rgba(0,0,0,0.6);
+    animation: modal-in 0.25s cubic-bezier(0.34,1.4,0.64,1) forwards;
+  }
+  @keyframes modal-in { from{opacity:0;transform:scale(0.93) translateY(-12px)} to{opacity:1;transform:none} }
+
+  .modal-header {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+    flex-shrink: 0;
+  }
+  .modal-title { font-family: 'Cinzel', serif; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.16em; color: var(--gold); text-transform: uppercase; flex: 1; }
+  .modal-close {
+    background: none; border: none; color: var(--text-dim);
+    font-size: 1.2rem; cursor: pointer; padding: 0 4px;
+    line-height: 1; transition: color 0.15s;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  .modal-search {
+    margin: 10px 18px 0;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text); font-family: 'Crimson Pro', serif; font-size: 0.9rem;
+    padding: 7px 12px; outline: none; width: calc(100% - 36px);
+    transition: border-color 0.18s; flex-shrink: 0;
+  }
+  .modal-search::placeholder { color: var(--text-dim); }
+  .modal-search:focus { border-color: rgba(255,255,255,0.3); }
+
+  .modal-list {
+    flex: 1; overflow-y: auto; padding: 10px 10px 12px;
+    display: flex; flex-direction: column; gap: 3px;
+    min-height: 0;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .modal-list::-webkit-scrollbar { width: 4px; }
+  .modal-list::-webkit-scrollbar-track { background: transparent; }
+  .modal-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .legend-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px; border-radius: 6px; cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.14s, border-color 0.14s;
+  }
+  .legend-row:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
+  .legend-row.selected { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.22); }
+
+  .legend-name { font-family: 'Cinzel', serif; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; color: var(--text); flex: 1; }
+  .legend-title { font-family: 'Crimson Pro', serif; font-style: italic; font-size: 0.72rem; color: var(--text-dim); flex: 1.2; }
+  .legend-domain-badges { display: flex; gap: 4px; flex-shrink: 0; }
+
+  .modal-clear {
+    margin: 0 18px 14px;
+    background: none; border: 1px solid rgba(255,80,80,0.3); color: rgba(255,100,100,0.7);
+    font-family: 'Cinzel', serif; font-size: 0.52rem; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 5px 14px; border-radius: 4px;
+    cursor: pointer; transition: all 0.18s; align-self: flex-start; flex-shrink: 0;
+  }
+  .modal-clear:hover { border-color: rgba(255,80,80,0.6); color: #ff8a8a; }
+
+  /* ── WINNER OVERLAY ── */
+  #winner-overlay { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(4,3,12,0.92); align-items: center; justify-content: center; backdrop-filter: blur(8px); }
+  #winner-overlay.show { display: flex; }
+  .winner-box { background: linear-gradient(160deg,#1a1040,#0b0618); border: 1px solid var(--gold-dim); border-radius: 12px; padding: 44px 52px; text-align: center; max-width: 400px; box-shadow: 0 0 60px rgba(201,168,76,0.2), 0 0 120px rgba(124,63,196,0.15); animation: winner-drop 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+  @keyframes winner-drop { from{opacity:0;transform:translateY(-28px) scale(0.92)} to{opacity:1;transform:none} }
+  .winner-rune { font-size:2rem; margin-bottom:8px; display:inline-block; animation:spin-rune 4s linear infinite; }
+  @keyframes spin-rune { 100%{transform:rotate(360deg)} }
+  .winner-label { font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.3em; color:var(--text-dim); text-transform:uppercase; margin-bottom:8px; }
+  .winner-name { font-family:'Cinzel',serif; font-size:2rem; font-weight:900; background:linear-gradient(135deg,var(--gold-bright),var(--gold)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; filter:drop-shadow(0 0 14px rgba(240,201,74,0.6)); margin-bottom:6px; }
+  .winner-sub { font-family:'Crimson Pro',serif; font-style:italic; color:var(--text-dim); font-size:1rem; margin-bottom:26px; }
+  .winner-close { background:linear-gradient(135deg,var(--gold-dim),#5a3a0a); border:1px solid var(--gold); color:var(--gold-bright); font-family:'Cinzel',serif; font-size:0.74rem; letter-spacing:0.15em; padding:9px 26px; border-radius:4px; cursor:pointer; text-transform:uppercase; transition:all 0.18s; }
+  .winner-close:hover { background:linear-gradient(135deg,#7a5010,#9a6210); }
+
+  #particles { position:fixed; inset:0; pointer-events:none; z-index:299; overflow:hidden; }
+  .particle { position:absolute; border-radius:50%; opacity:0; animation:particle-float linear forwards; }
+  @keyframes particle-float { 0%{opacity:0;transform:translateY(0) rotate(0deg)} 10%{opacity:1} 90%{opacity:0.6} 100%{opacity:0;transform:translateY(-100vh) rotate(720deg)} }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="vp-grad-danger" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff4a4a"/>
+      <stop offset="100%" style="stop-color:#ff8080"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div id="particles"></div>
+
+<!-- Legend picker modal -->
+<div id="legend-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Choose Legend</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <input class="modal-search" type="text" placeholder="Search legends…" id="legend-search" oninput="filterLegends()" autocomplete="off">
+    <div class="modal-list" id="legend-list"></div>
+    <button class="modal-clear" id="modal-clear-btn" onclick="clearLegend()">✕ Clear Legend</button>
+  </div>
+</div>
+
+<div id="winner-overlay">
+  <div class="winner-box">
+    <div class="winner-rune">◈</div>
+    <div class="winner-label">Victory Achieved</div>
+    <div id="winner-name" class="winner-name">Champion</div>
+    <div class="winner-sub">has conquered the Rift</div>
+    <button class="winner-close" onclick="closeWinner()">Continue</button>
+  </div>
+</div>
+
+<div id="layout">
+  <div class="half top" id="half-0">
+    <div class="domain-bg" id="bg-0"></div>
+    <div class="danger-overlay"></div>
+    <div class="player-panel" id="panel-0"></div>
+  </div>
+
+  <div id="divider">
+    <div class="rune-gem"></div>
+    <span class="div-title">RIFTGAUGE</span>
+    <div class="rune-gem"></div>
+    <div class="div-sep"></div>
+    <span class="ctrl-label">Win At</span>
+    <select class="mode-select" onchange="setWinTarget(this.value)">
+      <option value="8">8 — Standard</option>
+      <option value="11">11 — Team 2v2</option>
+      <option value="10">10 — Custom</option>
+      <option value="12">12 — Custom</option>
+    </select>
+    <div class="div-sep"></div>
+    <label class="aspirant-toggle" title="Aspirant's Climb: +1 to win target">
+      <input type="checkbox" id="aspirant-check" onchange="toggleAspiranton(this)">
+      <span class="aspirant-label">⛰ Aspirant's Climb</span>
+    </label>
+    <div class="div-sep"></div>
+    <button class="btn-reset" onclick="resetScores()">⟳ Reset</button>
+  </div>
+
+  <div class="half bottom" id="half-1">
+    <div class="domain-bg" id="bg-1"></div>
+    <div class="danger-overlay"></div>
+    <div class="player-panel" id="panel-1"></div>
+  </div>
+</div>
+
+<script>
+// ── Domain data ───────────────────────────────────────────────────────────────
+const DOMAINS = {
+  fury:  { label:'Fury',  colorA:'#c0251a', colorB:'#ff5a45', pip:'#ff6650' },
+  calm:  { label:'Calm',  colorA:'#165c2e', colorB:'#38b868', pip:'#45d070' },
+  mind:  { label:'Mind',  colorA:'#0f3898', colorB:'#4a96f0', pip:'#5aaeff' },
+  body:  { label:'Body',  colorA:'#8c3e00', colorB:'#e87a28', pip:'#f08030' },
+  chaos: { label:'Chaos', colorA:'#4e0e72', colorB:'#b050f0', pip:'#c060ff' },
+  order: { label:'Order', colorA:'#766800', colorB:'#d8c030', pip:'#e8d040' },
+};
+
+// ── Legend roster ─────────────────────────────────────────────────────────────
+// [id, name, title, domain1, domain2]
+const LEGENDS = [
+  // Origins (ogn) + Proving Grounds (ogs)
+  ['annie',       'Annie',         'Dark Child',              'fury',  'chaos'],  // ogs-017
+  ['masteryi',    'Master Yi',     'Wuju Bladesman',          'calm',  'body' ],  // ogs-019
+  ['lux',         'Lux',           'Lady of Luminosity',      'mind',  'order'],  // ogs-021
+  ['garen',       'Garen',         'Might of Demacia',        'body',  'order'],  // ogs-023
+  ['kaisa',       "Kai'Sa",        'Daughter of the Void',    'fury',  'mind' ],  // ogn-247
+  ['volibear',    'Volibear',      'Relentless Storm',        'fury',  'body' ],  // ogn-249
+  ['jinx',        'Jinx',          'Loose Cannon',            'fury',  'chaos'],  // ogn-251
+  ['darius',      'Darius',        'Hand of Noxus',           'fury',  'order'],  // ogn-253
+  ['ahri',        'Ahri',          'Nine-Tailed Fox',         'calm',  'mind' ],  // ogn-255
+  ['leesin',      'Lee Sin',       'Blind Monk',              'calm',  'body' ],  // ogn-257
+  ['yasuo',       'Yasuo',         'Unforgiven',              'calm',  'chaos'],  // ogn-259
+  ['leona',       'Leona',         'Radiant Dawn',            'calm',  'order'],  // ogn-261
+  ['teemo',       'Teemo',         'Swift Scout',             'mind',  'chaos'],  // ogn-263
+  ['viktor',      'Viktor',        'Herald of the Arcane',    'mind',  'order'],  // ogn-265
+  ['missfortune', 'Miss Fortune',  'Bounty Hunter',           'body',  'chaos'],  // ogn-267
+  ['sett',        'Sett',          'The Boss',                'body',  'order'],  // ogn (last)
+  // Spiritforged (sfd)
+  ['rumble',      'Rumble',        'Mechanized Menace',       'fury',  'mind' ],  // sfd-181
+  ['lucian',      'Lucian',        'Purifier',                'fury',  'body' ],  // sfd-183
+  ['draven',      'Draven',        'Glorious Executioner',    'fury',  'chaos'],  // sfd-185
+  ['reksai',      "Rek'Sai",       'Void Burrower',           'fury',  'order'],  // sfd-187
+  ['ornn',        'Ornn',          'Fire Below the Mountain', 'calm',  'mind' ],  // sfd-189
+  ['jax',         'Jax',           'Grandmaster at Arms',     'calm',  'body' ],  // sfd-193
+  ['irelia',      'Irelia',        'Blade Dancer',            'calm',  'chaos'],  // sfd-195
+  ['azir',        'Azir',          'Emperor of the Sands',    'calm',  'order'],  // sfd-197
+  ['ezreal',      'Ezreal',        'Prodigal Explorer',       'mind',  'chaos'],  // sfd-199
+  ['renata',      'Renata Glasc',  'Chem-Baroness',           'calm',  'order'],  // sfd-201
+  ['sivir',       'Sivir',         'Battle Mistress',         'body',  'chaos'],  // sfd-203
+  ['fiora',       'Fiora',         'Grand Duelist',           'body',  'order'],  // sfd-205
+  // Unleashed (unl)
+  ['jhin',        'Jhin',          'Virtuoso',                'fury',  'mind' ],  // unl-181
+  ['rengar',      'Rengar',        'Pridestalker',            'fury',  'body' ],  // unl-183
+  ['pyke',        'Pyke',          'Bloodharbor Ripper',      'chaos', 'fury' ],  // unl-185
+  ['vi',          'Vi',            'Piltover Enforcer',       'fury',  'order'],  // unl-187
+  ['lillia',      'Lillia',        'Bashful Bloom',           'calm',  'mind' ],  // unl-189
+  ['masteryi-unl','Master Yi',     'Wuju Master',             'calm',  'body' ],  // unl-191
+  ['vex',         'Vex',           'Gloomist',                'calm',  'chaos'],  // unl-193
+  ['ivern',       'Ivern',         'Green Father',            'calm',  'order'],  // unl-195
+  ['diana',       'Diana',         'Scorn of the Moon',       'mind',  'chaos'],  // unl-197
+  ['leblanc',     'LeBlanc',       'Deceiver',                'mind',  'order'],  // unl-199
+  ['khazix',      "Kha'Zix",       'Voidreaver',              'body',  'chaos'],  // unl-201
+  ['poppy',       'Poppy',         'Keeper of the Hammer',    'body',  'order'],  // unl-203
+];
+const legendById = Object.fromEntries(LEGENDS.map(l => [l[0], l]));
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let baseWinTarget  = 8;
+let aspirantsClimb = false;
+let winTarget      = 8;
+let scores         = [0, 0];
+let names          = ['', ''];
+let legends        = [null, null];   // selected legend id per player
+let flipped        = [false, false];
+let logs           = [[], []];
+let winnerShown    = false;
+let modalTarget    = 0;              // which player the open modal is for
+const defaultNames = ['Champion Alpha', 'Champion Beta'];
+
+// ── Color helpers ─────────────────────────────────────────────────────────────
+function getColors(playerIndex) {
+  const lid = legends[playerIndex];
+  if (!lid) return { a:'#12103a', b:'#1a1650', mid:'#2a2060', pip:'#4a3fa0', pip2:'#4a3fa0', ring:'#5a4fc0' };
+  const [, , , d1id, d2id] = legendById[lid];
+  const d1 = DOMAINS[d1id], d2 = DOMAINS[d2id];
+  return { a:d1.colorA, b:d2.colorA, mid:d1.colorB, b2:d2.colorB, pip:d1.pip, pip2:d2.pip, ring:d1.colorB };
+}
+
+function blendColors(hex1, hex2, t) {
+  const parse = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+  const [r1,g1,b1]=parse(hex1), [r2,g2,b2]=parse(hex2);
+  return `#${Math.round(r1+(r2-r1)*t).toString(16).padStart(2,'0')}${Math.round(g1+(g2-g1)*t).toString(16).padStart(2,'0')}${Math.round(b1+(b2-b1)*t).toString(16).padStart(2,'0')}`;
+}
+
+function buildHalfBg(i) {
+  const c = getColors(i);
+  const bg = document.getElementById(`bg-${i}`);
+  bg.style.background = legends[i] ? `
+    radial-gradient(ellipse 110% 90% at 20% 50%, ${c.a}55 0%, transparent 55%),
+    radial-gradient(ellipse 110% 90% at 80% 50%, ${c.b}55 0%, transparent 55%),
+    radial-gradient(ellipse 60% 80% at 50% 50%, ${c.mid}18 0%, transparent 60%),
+    linear-gradient(135deg, ${c.a}22 0%, ${c.b}22 100%)` : 'none';
+}
+
+function buildRingGradient(i, isDanger) {
+  if (isDanger) return 'url(#vp-grad-danger)';
+  const c = getColors(i);
+  const uid = `vp-grad-p${i}`;
+  let g = document.getElementById(uid);
+  if (!g) {
+    const defs = document.querySelector('svg defs');
+    g = document.createElementNS('http://www.w3.org/2000/svg','linearGradient');
+    g.setAttribute('id',uid); g.setAttribute('x1','0%'); g.setAttribute('y1','0%');
+    g.setAttribute('x2','100%'); g.setAttribute('y2','100%');
+    defs.appendChild(g);
+  }
+  g.innerHTML = `<stop offset="0%" style="stop-color:${c.ring}"/><stop offset="100%" style="stop-color:${c.pip2}"/>`;
+  return `url(#${uid})`;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderPanels() {
+  const maxScore = Math.max(...scores);
+  for (let i = 0; i < 2; i++) {
+    const s = scores[i];
+    const isWinning = s === maxScore && s > 0;
+    const atFinal   = s === winTarget - 1 && !isWinning;
+    const half = document.getElementById(`half-${i}`);
+    half.className = `half ${i===0?'top':'bottom'}${flipped[i]?' flipped':''}${atFinal?' at-final':''}`;
+    buildHalfBg(i);
+    const panel = document.getElementById(`panel-${i}`);
+    panel.innerHTML = '';
+    const c = getColors(i);
+
+    // Left block
+    const lb = document.createElement('div'); lb.className='left-block';
+
+    const inp = document.createElement('input');
+    inp.type='text'; inp.className='player-name';
+    inp.value=names[i]; inp.placeholder=defaultNames[i]; inp.maxLength=24;
+    inp.addEventListener('input', e=>{names[i]=e.target.value;});
+    inp.addEventListener('blur', ()=>renderPanels());
+
+    const lbl = document.createElement('div'); lbl.className='player-label'; lbl.textContent=`Player ${i+1}`;
+
+    // Legend button
+    const legendBtn = document.createElement('button');
+    legendBtn.className = 'btn-legend' + (legends[i]?' has-legend':'');
+    if (legends[i]) {
+      const [,name,title] = legendById[legends[i]];
+      legendBtn.textContent = name;
+    } else {
+      legendBtn.textContent = '⚔ Choose Legend';
+    }
+    legendBtn.addEventListener('click', ()=>openModal(i));
+
+    // Domain badges (only when legend selected)
+    const badgeRow = document.createElement('div'); badgeRow.className='legend-domains';
+    if (legends[i]) {
+      const [,,, d1id, d2id] = legendById[legends[i]];
+      [d1id, d2id].forEach(did => {
+        const d = DOMAINS[did];
+        const b = document.createElement('div');
+        b.className='domain-badge';
+        b.textContent=d.label;
+        b.style.background=`${d.colorA}88`;
+        b.style.borderColor=`${d.colorB}99`;
+        b.style.color=d.colorB;
+        badgeRow.appendChild(b);
+      });
+    }
+
+    const flipBtn = document.createElement('button');
+    flipBtn.className='btn-flip'; flipBtn.textContent='⇅ Flip Side';
+    flipBtn.addEventListener('click', ()=>{flipped[i]=!flipped[i];renderPanels();});
+
+    lb.appendChild(inp); lb.appendChild(lbl); lb.appendChild(legendBtn);
+    if (legends[i]) lb.appendChild(badgeRow);
+    lb.appendChild(flipBtn);
+
+    // Score column
+    const sc = document.createElement('div'); sc.className='score-col';
+    const vd = document.createElement('div'); vd.className='vp-display';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 120 120'); svg.classList.add('vp-svg');
+    const r=52, circ=2*Math.PI*r, offset=circ*(1-Math.min(s/winTarget,1));
+    const track=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    track.setAttribute('cx',60); track.setAttribute('cy',60); track.setAttribute('r',r); track.classList.add('vp-track');
+    const fill=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    fill.setAttribute('cx',60); fill.setAttribute('cy',60); fill.setAttribute('r',r); fill.classList.add('vp-fill');
+    fill.style.strokeDasharray=circ; fill.style.strokeDashoffset=offset;
+    fill.setAttribute('stroke', buildRingGradient(i, atFinal||s>=winTarget));
+    svg.appendChild(track); svg.appendChild(fill); vd.appendChild(svg);
+    const inner=document.createElement('div'); inner.className='vp-inner';
+    const num=document.createElement('div'); num.className='vp-number'; num.textContent=s;
+    const mx=document.createElement('div'); mx.className='vp-max'; mx.textContent=`/ ${winTarget} vp`;
+    inner.appendChild(num); inner.appendChild(mx); vd.appendChild(inner);
+    sc.appendChild(vd);
+
+    // Pips
+    const pipRow=document.createElement('div'); pipRow.className='pip-row';
+    for (let p=0;p<winTarget;p++){
+      const pip=document.createElement('div');
+      const fin=p===winTarget-1&&s>=winTarget, fil=p<s;
+      pip.className='pip'+(fin?' final':fil?' filled':'');
+      if(fil&&!fin){const col=blendColors(c.pip,c.pip2,winTarget>1?p/(winTarget-1):0);pip.style.background=col;pip.style.borderColor=col;pip.style.boxShadow=`0 0 5px ${col}80`;}
+      pipRow.appendChild(pip);
+    }
+    sc.appendChild(pipRow);
+
+    // Buttons
+    const btns=document.createElement('div'); btns.className='vp-btns';
+    const minus=document.createElement('button');
+    minus.className='vp-btn minus'; minus.textContent='−'; minus.title='Remove VP'; minus.disabled=s<=0;
+    minus.onclick=()=>changeScore(i,-1,'remove');
+    const hold=document.createElement('button');
+    hold.className='vp-btn hold'; hold.disabled=s>=winTarget; hold.title='Score: Hold Battlefield';
+    hold.innerHTML='<span class="btn-icon">⚑</span><span class="btn-label">Hold</span>';
+    hold.onclick=()=>changeScore(i,1,'hold');
+    const conquer=document.createElement('button');
+    conquer.className='vp-btn conquer'; conquer.disabled=s>=winTarget; conquer.title='Score: Conquer Battlefield';
+    conquer.innerHTML='<span class="btn-icon">⚔</span><span class="btn-label">Conquer</span>';
+    conquer.onclick=()=>changeScore(i,1,'conquer');
+    btns.appendChild(minus); btns.appendChild(hold); btns.appendChild(conquer);
+    sc.appendChild(btns);
+
+    // Log
+    const lp=document.createElement('div'); lp.className='log-panel';
+    const lt=document.createElement('div'); lt.className='log-title'; lt.textContent='Event Log';
+    const le=document.createElement('div'); le.className='log-entries'; le.id=`log-entries-${i}`;
+    if(logs[i].length===0){const e=document.createElement('div');e.className='log-empty';e.textContent='No events yet';le.appendChild(e);}
+    else{logs[i].forEach(entry=>{const el=document.createElement('div');el.className='log-entry';const cls=entry.action==='hold'?'log-action-hold':entry.action==='conquer'?'log-action-conquer':'log-action-remove';const verb=entry.action==='hold'?'Held battlefield':entry.action==='conquer'?'Conquered':'Removed VP';el.innerHTML=`<span class="log-ts">${entry.ts}</span><span class="${cls}">${verb}</span> — <span class="log-score">${entry.score} VP</span>`;le.appendChild(el);});}
+    lp.appendChild(lt); lp.appendChild(le);
+
+    panel.appendChild(lb); panel.appendChild(sc); panel.appendChild(lp);
+  }
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function openModal(playerIndex) {
+  modalTarget = playerIndex;
+  document.getElementById('legend-search').value = '';
+  filterLegends();
+  document.getElementById('legend-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('legend-search').focus(), 50);
+}
+
+function closeModal() {
+  document.getElementById('legend-modal').classList.remove('open');
+}
+
+function clearLegend() {
+  legends[modalTarget] = null;
+  closeModal();
+  renderPanels();
+}
+
+function selectLegend(lid) {
+  legends[modalTarget] = lid;
+  closeModal();
+  renderPanels();
+}
+
+function filterLegends() {
+  const q = document.getElementById('legend-search').value.toLowerCase().trim();
+  const list = document.getElementById('legend-list');
+  list.innerHTML = '';
+  const filtered = q ? LEGENDS.filter(l => l[1].toLowerCase().includes(q) || l[2].toLowerCase().includes(q) || DOMAINS[l[3]].label.toLowerCase().includes(q) || DOMAINS[l[4]].label.toLowerCase().includes(q)) : LEGENDS;
+  filtered.forEach(([lid, name, title, d1id, d2id]) => {
+    const row = document.createElement('div');
+    row.className = 'legend-row' + (legends[modalTarget]===lid?' selected':'');
+    const d1=DOMAINS[d1id], d2=DOMAINS[d2id];
+    row.innerHTML = `
+      <span class="legend-name">${name}</span>
+      <span class="legend-title">${title}</span>
+      <span class="legend-domain-badges">
+        <span class="domain-badge" style="background:${d1.colorA}88;border-color:${d1.colorB}99;color:${d1.colorB}">${d1.label}</span>
+        <span class="domain-badge" style="background:${d2.colorA}88;border-color:${d2.colorB}99;color:${d2.colorB}">${d2.label}</span>
+      </span>`;
+    row.addEventListener('click', ()=>selectLegend(lid));
+    list.appendChild(row);
+  });
+  if (filtered.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-family:Crimson Pro,serif;font-style:italic;color:rgba(255,255,255,0.25);font-size:0.82rem;padding:12px;text-align:center;';
+    empty.textContent = 'No legends found';
+    list.appendChild(empty);
+  }
+}
+
+// Close modal on backdrop click
+document.getElementById('legend-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+// Close on Escape
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+// ── Score ─────────────────────────────────────────────────────────────────────
+function changeScore(i, delta, action) {
+  const prev=scores[i];
+  scores[i]=Math.max(0,Math.min(winTarget,scores[i]+delta));
+  if(scores[i]===prev) return;
+  const now=new Date();
+  const ts=now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  logs[i].unshift({action,score:scores[i],ts});
+  if(logs[i].length>50) logs[i].pop();
+  renderPanels();
+  if(scores[i]>=winTarget&&!winnerShown){
+    winnerShown=true;
+    const name=names[i]||defaultNames[i];
+    setTimeout(()=>showWinner(name,i),300);
+  }
+}
+
+function setWinTarget(v){ baseWinTarget=parseInt(v); winTarget=baseWinTarget+(aspirantsClimb?1:0); renderPanels(); }
+function toggleAspiranton(el){ aspirantsClimb=el.checked; winTarget=baseWinTarget+(aspirantsClimb?1:0); renderPanels(); }
+
+function showWinner(name, pi) {
+  document.getElementById('winner-name').textContent=name;
+  document.getElementById('winner-overlay').classList.add('show');
+  const c=getColors(pi);
+  const cols=[c.pip||'#c9a84c',c.pip2||'#f0c94a',c.ring||'#c9a84c','#ffffff','#c9a84c'];
+  const ct=document.getElementById('particles');
+  for(let i=0;i<70;i++){setTimeout(()=>{const p=document.createElement('div');p.className='particle';p.style.left=Math.random()*100+'vw';p.style.bottom='0';p.style.background=cols[Math.floor(Math.random()*cols.length)];p.style.width=p.style.height=(3+Math.random()*5)+'px';p.style.animationDuration=(2.5+Math.random()*2.5)+'s';ct.appendChild(p);setTimeout(()=>p.remove(),6000);},i*35);}
+}
+function closeWinner(){ document.getElementById('winner-overlay').classList.remove('show'); }
+
+function resetScores(){
+  scores=[0,0]; logs=[[],[]]; winnerShown=false;
+  aspirantsClimb=false; winTarget=baseWinTarget;
+  const cb=document.getElementById('aspirant-check'); if(cb) cb.checked=false;
+  document.getElementById('winner-overlay').classList.remove('show');
+  renderPanels();
+}
+
+renderPanels();
+</script>
+
+<script>
+// ── PWA: Service Worker via inline Blob ───────────────────────────────────────
+// Caches Google Fonts for offline use. The app itself is fully self-contained
+// so it already works offline — the SW just ensures fonts persist too.
+if ('serviceWorker' in navigator) {
+  const SW = `
+const CACHE='riftgauge-v1';
+self.addEventListener('install',e=>{
+  e.waitUntil(
+    caches.open(CACHE).then(c=>c.addAll([
+      'https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300&display=swap',
+      'https://fonts.gstatic.com'
+    ]).catch(()=>{})).then(()=>self.skipWaiting())
+  );
+});
+self.addEventListener('activate',e=>{
+  e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(n=>n!==CACHE).map(n=>caches.delete(n)))).then(()=>self.clients.claim()));
+});
+self.addEventListener('fetch',e=>{
+  const u=e.request.url;
+  if(u.includes('fonts.google')||u.includes('fonts.gstatic')){
+    e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{
+      caches.open(CACHE).then(c=>c.put(e.request,res.clone()));return res;
+    })));
+  }
+});`;
+  const blob = new Blob([SW], {type:'application/javascript'});
+  const url  = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(url,{scope:'./'})
+    .then(()=>URL.revokeObjectURL(url))
+    .catch(()=>{});
+}
+</script>
+</body>
+</html>
