@@ -295,11 +295,12 @@
   }
   .vp-btn.minus { width: 30px; height: 30px; border-radius: 50%; font-size: 1.1rem; font-weight: 300; padding-bottom: 2px; }
   .vp-btn.minus:hover { background: rgba(180,30,30,0.4); border-color: rgba(255,80,80,0.5); color: #ff9a9a; }
-  .vp-btn.hold, .vp-btn.conquer { border-radius: 15px; padding: 4px 9px; font-size: 0.52rem; letter-spacing: 0.1em; text-transform: uppercase; flex-direction: column; gap: 1px; line-height: 1.1; }
+  .vp-btn.hold, .vp-btn.conquer, .vp-btn.card-effect { border-radius: 15px; padding: 4px 9px; font-size: 0.52rem; letter-spacing: 0.1em; text-transform: uppercase; flex-direction: column; gap: 1px; line-height: 1.1; }
   .vp-btn .btn-icon  { font-size: 0.78rem; }
   .vp-btn .btn-label { font-size: 0.48rem; letter-spacing: 0.1em; }
-  .vp-btn.hold:hover    { background: rgba(0,90,140,0.4); border-color: rgba(0,180,255,0.4); color: #7dd8ff; }
-  .vp-btn.conquer:hover { background: rgba(120,80,0,0.4); border-color: rgba(220,160,40,0.4); color: var(--gold-bright); }
+  .vp-btn.hold:hover        { background: rgba(0,90,140,0.4); border-color: rgba(0,180,255,0.4); color: #7dd8ff; }
+  .vp-btn.conquer:hover     { background: rgba(120,80,0,0.4); border-color: rgba(220,160,40,0.4); color: var(--gold-bright); }
+  .vp-btn.card-effect:hover { background: rgba(90,0,120,0.4); border-color: rgba(180,80,255,0.4); color: #d080ff; }
   .vp-btn:disabled { opacity: 0.2; cursor: not-allowed; }
   .vp-btn:disabled:hover { background: rgba(0,0,0,0.3); border-color: rgba(255,255,255,0.13); color: rgba(255,255,255,0.65); }
 
@@ -321,6 +322,7 @@
   .log-entry .log-action-hold    { color: #5aaeff; }
   .log-entry .log-action-conquer { color: var(--gold); }
   .log-entry .log-action-remove  { color: #ff7070; }
+  .log-entry .log-action-card    { color: #d080ff; }
   .log-entry .log-ts { font-size: 0.58rem; color: rgba(255,255,255,0.22); display: block; margin-bottom: 1px; }
   .log-empty { font-family: 'Crimson Pro', serif; font-style: italic; font-size: 0.7rem; color: rgba(255,255,255,0.2); text-align: center; padding-top: 8px; }
 
@@ -706,7 +708,11 @@ function renderPanels() {
     conquer.className='vp-btn conquer'; conquer.disabled=s>=winTarget; conquer.title='Score: Conquer Battlefield';
     conquer.innerHTML='<span class="btn-icon">⚔</span><span class="btn-label">Conquer</span>';
     conquer.onclick=()=>changeScore(i,1,'conquer');
-    btns.appendChild(minus); btns.appendChild(hold); btns.appendChild(conquer);
+    const cardEffect=document.createElement('button');
+    cardEffect.className='vp-btn card-effect'; cardEffect.disabled=s>=winTarget; cardEffect.title='Score: Card Effect';
+    cardEffect.innerHTML='<span class="btn-icon">✦</span><span class="btn-label">Card</span>';
+    cardEffect.onclick=()=>changeScore(i,1,'card');
+    btns.appendChild(minus); btns.appendChild(hold); btns.appendChild(conquer); btns.appendChild(cardEffect);
     sc.appendChild(btns);
 
     // Log
@@ -714,7 +720,7 @@ function renderPanels() {
     const lt=document.createElement('div'); lt.className='log-title'; lt.textContent='Event Log';
     const le=document.createElement('div'); le.className='log-entries'; le.id=`log-entries-${i}`;
     if(logs[i].length===0){const e=document.createElement('div');e.className='log-empty';e.textContent='No events yet';le.appendChild(e);}
-    else{logs[i].forEach(entry=>{const el=document.createElement('div');el.className='log-entry';const cls=entry.action==='hold'?'log-action-hold':entry.action==='conquer'?'log-action-conquer':'log-action-remove';const verb=entry.action==='hold'?'Held battlefield':entry.action==='conquer'?'Conquered':'Removed VP';el.innerHTML=`<span class="log-ts">${entry.ts}</span><span class="${cls}">${verb}</span> — <span class="log-score">${entry.score} VP</span>`;le.appendChild(el);});}
+    else{logs[i].forEach(entry=>{const el=document.createElement('div');el.className='log-entry';const cls=entry.action==='hold'?'log-action-hold':entry.action==='conquer'?'log-action-conquer':entry.action==='card'?'log-action-card':'log-action-remove';const verb=entry.action==='hold'?'Held battlefield':entry.action==='conquer'?'Conquered':entry.action==='card'?'Card effect':'Removed VP';el.innerHTML=`<span class="log-ts">${entry.ts}</span><span class="${cls}">${verb}</span> — <span class="log-score">${entry.score} VP</span>`;le.appendChild(el);});}
     lp.appendChild(lt); lp.appendChild(le);
 
     panel.appendChild(lb); panel.appendChild(sc); panel.appendChild(lp);
