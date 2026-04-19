@@ -619,12 +619,12 @@ let modalTarget    = 0;              // which player the open modal is for
 const defaultNames = ['Champion Alpha', 'Champion Beta'];
 
 // ── Champion unit roster per legend ──────────────────────────────────────────
-// Format: legendId -> array of champion subtitles
+// Sourced from official card list screenshots, color-coded by domain
 const CHAMPIONS = {
   // Origins / Proving Grounds
   annie:        ['Fiery', 'Stubborn'],
-  masteryi:     ['Wuju Bladesman'],
-  lux:          ['Illuminated'],
+  masteryi:     ['Meditative', 'Honed', 'Unstoppable'],
+  lux:          ['Illuminated', 'Crownguard'],
   garen:        ['Rugged', 'Commander'],
   kaisa:        ['Survivor', 'Evolutionary'],
   volibear:     ['Furious', 'Imposing'],
@@ -639,31 +639,31 @@ const CHAMPIONS = {
   missfortune:  ['Captain', 'Buccaneer'],
   sett:         ['Brawler', 'Kingpin'],
   // Spiritforged
-  rumble:       ['Mechanized Menace'],
-  lucian:       ['Purifier'],
-  draven:       ['Showboat', 'Vanquisher', 'Audacious'],
-  reksai:       ['Void Burrower'],
-  ornn:         ['Forge God'],
-  jax:          ['Grandmaster at Arms'],
-  irelia:       ['Fervent', 'Blade Dancer'],
-  azir:         ['Emperor of the Sands'],
+  rumble:       ['Hotheaded', 'Scrapper'],
+  lucian:       ['Gunslinger', 'Merciless'],
+  draven:       ['Vanquisher', 'Showboat', 'Audacious'],
+  reksai:       ['Breacher', 'Swarm Queen'],
+  ornn:         ['Blacksmith', 'Forge God'],
+  jax:          ['Unmatched', 'Unrelenting'],
+  irelia:       ['Fervent', 'Graceful'],
+  azir:         ['Ascendant', 'Sovereign'],
   ezreal:       ['Dashing', 'Prodigy'],
-  renata:       ['Mastermind'],
-  sivir:        ['Battle Mistress'],
-  fiora:        ['Peerless', 'Worthy', 'Grand Duelist'],
+  renata:       ['Mastermind', 'Industrialist'],
+  sivir:        ['Ambitious', 'Mercenary'],
+  fiora:        ['Peerless', 'Worthy', 'Victorious'],
   // Unleashed
-  jhin:         ['Virtuoso'],
-  rengar:       ['Pridestalker'],
-  pyke:         ['Bloodharbor Ripper'],
-  vi:           ['Piltover Enforcer', 'Destructive'],
-  lillia:       ['Bashful Bloom'],
-  'masteryi-unl': ['Wuju Master'],
-  vex:          ['Gloomist'],
-  ivern:        ['Green Father'],
-  diana:        ['Scorn of the Moon'],
-  leblanc:      ['Deceiver'],
-  khazix:       ['Voidreaver'],
-  poppy:        ['Keeper of the Hammer'],
+  jhin:         ['Murderous Artist', 'Meticulous Killer'],
+  rengar:       ['Unseen', 'Pouncing'],
+  pyke:         ['Dockside Butcher', 'Returned'],
+  vi:           ['Hotheaded', 'Destructive', 'Peacekeeper'],
+  lillia:       ['Protector of Dreams', 'Fae Fawn'],
+  'masteryi-unl': ['Tempered'],
+  vex:          ['Mocking', 'Cheerless', 'Apathetic'],
+  ivern:        ['Nurturer', 'Friend to All'],
+  diana:        ['Lunari', 'No Longer Human'],
+  leblanc:      ['Everywhere at Once', 'Fragmented'],
+  khazix:       ['Evolving Hunter', 'Mutating Horror'],
+  poppy:        ['Paragon', 'Defender of the Meek'],
 };
 function getColors(playerIndex) {
   const lid = legends[playerIndex];
