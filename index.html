@@ -241,6 +241,15 @@
     border: 1px solid transparent; white-space: nowrap;
   }
 
+  /* Chosen champion */
+  .chosen-champion {
+    font-family: 'Crimson Pro', serif; font-style: italic;
+    font-size: 0.72rem; color: rgba(255,255,255,0.55);
+    letter-spacing: 0.06em; text-align: center;
+    max-width: 145px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+
   /* Flip button */
   .btn-flip {
     font-family: 'Cinzel', serif; font-size: 0.48rem;
@@ -402,6 +411,45 @@
   }
   .modal-clear:hover { border-color: rgba(255,80,80,0.6); color: #ff8a8a; }
 
+  /* Champion input row — shown after selecting a legend */
+  .modal-champion-row {
+    display: none;
+    align-items: center; gap: 8px;
+    margin: 8px 18px 4px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border); border-radius: 6px;
+    flex-shrink: 0;
+  }
+  .modal-champion-row.visible { display: flex; }
+  .modal-champion-label {
+    font-family: 'Cinzel', serif; font-size: 0.55rem;
+    letter-spacing: 0.12em; color: var(--text-dim);
+    text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+  }
+  .modal-champion-input {
+    flex: 1; background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text); font-family: 'Crimson Pro', serif; font-size: 0.88rem;
+    padding: 5px 8px; outline: none; min-width: 0; cursor: pointer;
+    transition: border-color 0.18s;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%237a7060'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 8px center;
+    padding-right: 24px;
+  }
+  .modal-champion-input:focus { border-color: rgba(255,255,255,0.4); }
+  .modal-champion-input option { background: #12102a; color: var(--text); }
+  .modal-confirm-btn {
+    background: linear-gradient(135deg, #1a1040, #2a1860);
+    border: 1px solid var(--gold-dim); color: var(--gold);
+    font-family: 'Cinzel', serif; font-size: 0.58rem;
+    letter-spacing: 0.1em; padding: 5px 12px; border-radius: 4px;
+    cursor: pointer; text-transform: uppercase; white-space: nowrap;
+    flex-shrink: 0; transition: all 0.18s;
+  }
+  .modal-confirm-btn:hover { border-color: var(--gold); box-shadow: 0 0 10px rgba(201,168,76,0.25); color: var(--gold-bright); }
+
   /* ── WINNER OVERLAY ── */
   #winner-overlay { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(4,3,12,0.92); align-items: center; justify-content: center; backdrop-filter: blur(8px); }
   #winner-overlay.show { display: flex; }
@@ -442,6 +490,11 @@
     </div>
     <input class="modal-search" type="text" placeholder="Search legends…" id="legend-search" oninput="filterLegends()" autocomplete="off">
     <div class="modal-list" id="legend-list"></div>
+    <div class="modal-champion-row" id="modal-champion-row">
+      <label class="modal-champion-label">Chosen Champion</label>
+      <select class="modal-champion-input" id="modal-champion-input"></select>
+      <button class="modal-confirm-btn" onclick="confirmLegend()">✓ Confirm</button>
+    </div>
     <button class="modal-clear" id="modal-clear-btn" onclick="clearLegend()">✕ Clear Legend</button>
   </div>
 </div>
@@ -558,13 +611,60 @@ let winTarget      = 8;
 let scores         = [0, 0];
 let names          = ['', ''];
 let legends        = [null, null];   // selected legend id per player
+let champions      = ['', ''];       // chosen champion subtitle per player
 let flipped        = [false, false];
 let logs           = [[], []];
 let winnerShown    = false;
 let modalTarget    = 0;              // which player the open modal is for
 const defaultNames = ['Champion Alpha', 'Champion Beta'];
 
-// ── Color helpers ─────────────────────────────────────────────────────────────
+// ── Champion unit roster per legend ──────────────────────────────────────────
+// Format: legendId -> array of champion subtitles
+const CHAMPIONS = {
+  // Origins / Proving Grounds
+  annie:        ['Fiery', 'Stubborn'],
+  masteryi:     ['Wuju Bladesman'],
+  lux:          ['Illuminated'],
+  garen:        ['Rugged', 'Commander'],
+  kaisa:        ['Survivor', 'Evolutionary'],
+  volibear:     ['Furious', 'Imposing'],
+  jinx:         ['Demolitionist', 'Rebel'],
+  darius:       ['Trifarian', 'Executioner'],
+  ahri:         ['Alluring', 'Inquisitive'],
+  leesin:       ['Ascetic', 'Centered'],
+  yasuo:        ['Remorseful', 'Windrider'],
+  leona:        ['Zealot', 'Determined'],
+  teemo:        ['Strategist', 'Scout'],
+  viktor:       ['Innovator', 'Leader'],
+  missfortune:  ['Captain', 'Buccaneer'],
+  sett:         ['Brawler', 'Kingpin'],
+  // Spiritforged
+  rumble:       ['Mechanized Menace'],
+  lucian:       ['Purifier'],
+  draven:       ['Showboat', 'Vanquisher', 'Audacious'],
+  reksai:       ['Void Burrower'],
+  ornn:         ['Forge God'],
+  jax:          ['Grandmaster at Arms'],
+  irelia:       ['Fervent', 'Blade Dancer'],
+  azir:         ['Emperor of the Sands'],
+  ezreal:       ['Dashing', 'Prodigy'],
+  renata:       ['Mastermind'],
+  sivir:        ['Battle Mistress'],
+  fiora:        ['Peerless', 'Worthy', 'Grand Duelist'],
+  // Unleashed
+  jhin:         ['Virtuoso'],
+  rengar:       ['Pridestalker'],
+  pyke:         ['Bloodharbor Ripper'],
+  vi:           ['Piltover Enforcer', 'Destructive'],
+  lillia:       ['Bashful Bloom'],
+  'masteryi-unl': ['Wuju Master'],
+  vex:          ['Gloomist'],
+  ivern:        ['Green Father'],
+  diana:        ['Scorn of the Moon'],
+  leblanc:      ['Deceiver'],
+  khazix:       ['Voidreaver'],
+  poppy:        ['Keeper of the Hammer'],
+};
 function getColors(playerIndex) {
   const lid = legends[playerIndex];
   if (!lid) return { a:'#12103a', b:'#1a1650', mid:'#2a2060', pip:'#4a3fa0', pip2:'#4a3fa0', ring:'#5a4fc0' };
@@ -634,7 +734,7 @@ function renderPanels() {
     const legendBtn = document.createElement('button');
     legendBtn.className = 'btn-legend' + (legends[i]?' has-legend':'');
     if (legends[i]) {
-      const [,name,title] = legendById[legends[i]];
+      const [,name] = legendById[legends[i]];
       legendBtn.textContent = name;
     } else {
       legendBtn.textContent = '⚔ Choose Legend';
@@ -657,12 +757,19 @@ function renderPanels() {
       });
     }
 
+    // Chosen champion display
+    const champEl = document.createElement('div');
+    champEl.className = 'chosen-champion';
+    if (legends[i] && champions[i]) {
+      champEl.textContent = champions[i];
+    }
+
     const flipBtn = document.createElement('button');
     flipBtn.className='btn-flip'; flipBtn.textContent='⇅ Flip Side';
     flipBtn.addEventListener('click', ()=>{flipped[i]=!flipped[i];renderPanels();});
 
     lb.appendChild(inp); lb.appendChild(lbl); lb.appendChild(legendBtn);
-    if (legends[i]) lb.appendChild(badgeRow);
+    if (legends[i]) { lb.appendChild(badgeRow); lb.appendChild(champEl); }
     lb.appendChild(flipBtn);
 
     // Score column
@@ -731,23 +838,52 @@ function renderPanels() {
 function openModal(playerIndex) {
   modalTarget = playerIndex;
   document.getElementById('legend-search').value = '';
+  document.getElementById('modal-champion-row').classList.remove('visible');
   filterLegends();
+  // If legend already selected, re-populate champion select
+  if (legends[playerIndex]) selectLegend(legends[playerIndex]);
   document.getElementById('legend-modal').classList.add('open');
   setTimeout(()=>document.getElementById('legend-search').focus(), 50);
 }
 
 function closeModal() {
   document.getElementById('legend-modal').classList.remove('open');
+  document.getElementById('modal-champion-row').classList.remove('visible');
 }
 
 function clearLegend() {
   legends[modalTarget] = null;
+  champions[modalTarget] = '';
   closeModal();
   renderPanels();
 }
 
 function selectLegend(lid) {
   legends[modalTarget] = lid;
+  // Populate champion dropdown
+  const champRow   = document.getElementById('modal-champion-row');
+  const champSelect = document.getElementById('modal-champion-input');
+  champSelect.innerHTML = '';
+  const opts = CHAMPIONS[lid] || [];
+  opts.forEach(c => {
+    const [,name] = legendById[lid];
+    const opt = document.createElement('option');
+    opt.value = `${name} — ${c}`;
+    opt.textContent = `${name} — ${c}`;
+    if (champions[modalTarget] === `${name} — ${c}`) opt.selected = true;
+    champSelect.appendChild(opt);
+  });
+  // Pre-select saved champion if it still matches
+  if (champions[modalTarget] && !Array.from(champSelect.options).some(o => o.value === champions[modalTarget])) {
+    champSelect.selectedIndex = 0;
+  }
+  champRow.classList.add('visible');
+  filterLegends();
+}
+
+function confirmLegend() {
+  const sel = document.getElementById('modal-champion-input');
+  champions[modalTarget] = sel.value || '';
   closeModal();
   renderPanels();
 }
@@ -781,8 +917,7 @@ function filterLegends() {
 
 // Close modal on backdrop click
 document.getElementById('legend-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
-// Close on Escape
-document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
 
 // ── Score ─────────────────────────────────────────────────────────────────────
 function changeScore(i, delta, action) {
@@ -817,6 +952,7 @@ function closeWinner(){ document.getElementById('winner-overlay').classList.remo
 function resetScores(){
   scores=[0,0]; logs=[[],[]]; winnerShown=false;
   aspirantsClimb=false; winTarget=baseWinTarget;
+  champions=['',''];
   const cb=document.getElementById('aspirant-check'); if(cb) cb.checked=false;
   document.getElementById('winner-overlay').classList.remove('show');
   renderPanels();
