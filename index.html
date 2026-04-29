@@ -164,21 +164,88 @@
   }
   .btn-reset:hover { background: linear-gradient(135deg,#3d1010,#551414); border-color: #ff4a4a; color: #ffb3b3; }
 
-  /* Aspirant toggle */
-  .aspirant-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; flex-shrink: 0; user-select: none; }
-  .aspirant-toggle input[type="checkbox"] { display: none; }
-  .aspirant-label {
-    font-family: 'Cinzel', serif; font-size: 0.9em;
-    letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap;
-    color: rgba(255,255,255,0.35); padding: 0.5em 1em; border-radius: 4px;
-    border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03);
-    transition: all 0.2s;
+  /* Battlefield selector button */
+  .btn-battlefield {
+    font-family: 'Cinzel', serif; font-size: 0.52rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 5px 14px; border-radius: 4px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.45);
+    background: rgba(255,255,255,0.04);
+    transition: all 0.18s; user-select: none; white-space: nowrap;
+    width: 100%; text-align: center; max-width: 145px;
   }
-  .aspirant-toggle input:checked + .aspirant-label {
-    color: #a8e0ff; border-color: rgba(100,200,255,0.45); background: rgba(30,100,180,0.25);
-    box-shadow: 0 0 10px rgba(60,160,255,0.2); text-shadow: 0 0 8px rgba(100,200,255,0.5);
+  .btn-battlefield:hover { color: rgba(255,255,255,0.8); border-color: rgba(255,255,255,0.28); background: rgba(255,255,255,0.09); }
+  .btn-battlefield.has-battlefield { color: #fff; font-weight: 600; font-size: 0.55rem; }
+  .btn-battlefield.has-aspirant {
+    color: #a8e0ff; border-color: rgba(100,200,255,0.45);
+    background: rgba(30,100,180,0.2);
+    box-shadow: 0 0 8px rgba(60,160,255,0.18);
   }
-  .aspirant-toggle:hover .aspirant-label { color: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.22); }
+
+  /* Battlefield modal */
+  #battlefield-modal {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(4,3,12,0.92); align-items: center; justify-content: center;
+    backdrop-filter: blur(8px);
+  }
+  #battlefield-modal.open { display: flex; }
+  .bf-modal-box {
+    background: linear-gradient(160deg, #12102a, #0c0a1e);
+    border: 1px solid var(--border); border-radius: 10px;
+    width: min(480px, 92vw); max-height: 74vh;
+    display: flex; flex-direction: column;
+    animation: modal-in 0.22s cubic-bezier(0.34,1.4,0.64,1) forwards;
+  }
+  .bf-modal-header {
+    padding: 14px 18px 12px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  }
+  .bf-modal-title { font-family: 'Cinzel', serif; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.14em; color: var(--gold); text-transform: uppercase; flex: 1; }
+  .bf-modal-close { background: none; border: none; color: var(--text-dim); font-size: 1.2rem; cursor: pointer; padding: 0 4px; line-height: 1; }
+  .bf-modal-close:hover { color: var(--text); }
+  .bf-modal-search {
+    margin: 10px 18px 0; background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text); font-family: 'Crimson Pro', serif; font-size: 0.9rem;
+    padding: 7px 12px; outline: none; width: calc(100% - 36px); flex-shrink: 0;
+    transition: border-color 0.18s;
+  }
+  .bf-modal-search::placeholder { color: var(--text-dim); }
+  .bf-modal-search:focus { border-color: rgba(255,255,255,0.3); }
+  .bf-modal-list {
+    flex: 1; overflow-y: auto; padding: 8px 10px 10px;
+    display: flex; flex-direction: column; gap: 2px; min-height: 0;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .bf-modal-list::-webkit-scrollbar { width: 4px; }
+  .bf-modal-list::-webkit-scrollbar-track { background: transparent; }
+  .bf-modal-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .bf-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 10px; border-radius: 5px; cursor: pointer;
+    border: 1px solid transparent; transition: background 0.13s, border-color 0.13s;
+  }
+  .bf-row:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
+  .bf-row.selected { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.22); }
+  .bf-row.aspirant-row { border-color: rgba(100,200,255,0.2); background: rgba(30,100,180,0.08); }
+  .bf-row.aspirant-row:hover { background: rgba(30,100,180,0.18); border-color: rgba(100,200,255,0.4); }
+  .bf-name { font-family: 'Cinzel', serif; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; color: var(--text); flex: 1; }
+  .bf-set  { font-family: 'Crimson Pro', serif; font-style: italic; font-size: 0.68rem; color: var(--text-dim); flex-shrink: 0; }
+  .bf-badge {
+    font-family: 'Cinzel', serif; font-size: 0.44rem; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 2px 7px; border-radius: 10px;
+    background: rgba(100,200,255,0.15); border: 1px solid rgba(100,200,255,0.4);
+    color: #a8e0ff; flex-shrink: 0; white-space: nowrap;
+  }
+  .bf-modal-clear {
+    margin: 0 18px 12px; background: none;
+    border: 1px solid rgba(255,80,80,0.3); color: rgba(255,100,100,0.7);
+    font-family: 'Cinzel', serif; font-size: 0.52rem; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 5px 14px; border-radius: 4px;
+    cursor: pointer; transition: all 0.18s; align-self: flex-start; flex-shrink: 0;
+  }
+  .bf-modal-clear:hover { border-color: rgba(255,80,80,0.6); color: #ff8a8a; }
 
   /* ── PLAYER PANEL ── */
   .player-panel {
@@ -499,6 +566,19 @@
   </div>
 </div>
 
+<!-- Battlefield picker modal -->
+<div id="battlefield-modal">
+  <div class="bf-modal-box">
+    <div class="bf-modal-header">
+      <span class="bf-modal-title">Choose Battlefield</span>
+      <button class="bf-modal-close" onclick="closeBfModal()">✕</button>
+    </div>
+    <input class="bf-modal-search" type="text" placeholder="Search battlefields…" id="bf-search" oninput="filterBattlefields()" autocomplete="off">
+    <div class="bf-modal-list" id="bf-list"></div>
+    <button class="bf-modal-clear" onclick="clearBattlefield()">✕ Clear Battlefield</button>
+  </div>
+</div>
+
 <div id="winner-overlay">
   <div class="winner-box">
     <div class="winner-rune">◈</div>
@@ -528,11 +608,6 @@
       <option value="10">10 — Custom</option>
       <option value="12">12 — Custom</option>
     </select>
-    <div class="div-sep"></div>
-    <label class="aspirant-toggle" title="Aspirant's Climb: +1 to win target">
-      <input type="checkbox" id="aspirant-check" onchange="toggleAspiranton(this)">
-      <span class="aspirant-label">⛰ Aspirant's Climb</span>
-    </label>
     <div class="div-sep"></div>
     <button class="btn-reset" onclick="resetScores()">⟳ Reset</button>
   </div>
@@ -606,16 +681,16 @@ const legendById = Object.fromEntries(LEGENDS.map(l => [l[0], l]));
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let baseWinTarget  = 8;
-let aspirantsClimb = false;
 let winTarget      = 8;
 let scores         = [0, 0];
 let names          = ['', ''];
-let legends        = [null, null];   // selected legend id per player
-let champions      = ['', ''];       // chosen champion subtitle per player
+let legends        = [null, null];
+let champions      = ['', ''];
+let battlefields   = [null, null];   // selected battlefield id per player
 let flipped        = [false, false];
 let logs           = [[], []];
 let winnerShown    = false;
-let modalTarget    = 0;              // which player the open modal is for
+let modalTarget    = 0;
 const defaultNames = ['Champion Alpha', 'Champion Beta'];
 
 // ── Champion unit roster per legend ──────────────────────────────────────────
@@ -665,6 +740,71 @@ const CHAMPIONS = {
   khazix:       ['Evolving Hunter', 'Mutating Horror'],
   poppy:        ['Paragon', 'Defender of the Meek'],
 };
+
+// ── Battlefield roster ────────────────────────────────────────────────────────
+// [id, name, set, vpMod]  vpMod = how much this adds to the victory score
+const BATTLEFIELDS = [
+  // Origins Main Set
+  ['abandoned-hall',       'Abandoned Hall',        'ogn', 0],
+  ['altar-of-blood',       'Altar of Blood',        'ogn', 0],
+  ['altar-to-unity',       'Altar to Unity',        'ogn', 0],
+  ['aspirants-climb',      "Aspirant's Climb",      'ogn', 1],
+  ['back-alley-bar',       'Back-Alley Bar',        'ogn', 0],
+  ['bandle-tree',          'Bandle Tree',           'ogn', 0],
+  ['baron-pit',            'Baron Pit',             'ogn', 0],
+  ['black-flame-altar',    'Black Flame Altar',     'ogn', 0],
+  ['brush',                'Brush',                 'ogn', 0],
+  ['dusk-rose-lab',        'Dusk Rose Lab',         'ogn', 0],
+  ['emperors-dais',        "Emperor's Dais",        'ogn', 0],
+  ['forbidding-waste',     'Forbidding Waste',      'ogn', 0],
+  ['forgotten-library',    'Forgotten Library',     'ogn', 0],
+  ['forgotten-monument',   'Forgotten Monument',    'ogn', 0],
+  ['fortified-position',   'Fortified Position',    'ogn', 0],
+  ['frozen-fortress',      'Frozen Fortress',       'ogn', 0],
+  ['gardens-of-becoming',  'Gardens of Becoming',   'ogn', 0],
+  ['grove-god-willow',     'Grove of the God-Willow','ogn',0],
+  ['hall-of-legends',      'Hall of Legends',       'ogn', 0],
+  ['hallowed-tomb',        'Hallowed Tomb',         'ogn', 0],
+  ['marai-spire',          'Marai Spire',           'ogn', 0],
+  ['minefield',            'Minefield',             'ogn', 0],
+  ['navori-fighting-pit',  'Navori Fighting Pit',   'ogn', 0],
+  ['obelisk-of-power',     'Obelisk of Power',      'ogn', 0],
+  // Spiritforged
+  ['amateur-recital',      'Amateur Recital',       'sfd', 0],
+  ['forge-of-the-fluft',   'Forge of the Fluft',    'sfd', 0],
+  ['monastery-of-hirana',  'Monastery of Hirana',   'sfd', 0],
+  ['ornns-forge',          "Ornn's Forge",          'sfd', 0],
+  ['power-nexus',          'Power Nexus',           'sfd', 0],
+  ['ravenbloom-conservatory','Ravenbloom Conservatory','sfd',0],
+  ['reavers-row',          "Reaver's Row",          'sfd', 0],
+  ['sigil-of-the-storm',   'Sigil of the Storm',    'sfd', 0],
+  ['the-dreaming-tree',    'The Dreaming Tree',     'sfd', 0],
+  ['treasure-hoard',       'Treasure Hoard',        'sfd', 0],
+  ['vilemaws-lair',        "Vilemaw's Lair",        'sfd', 0],
+  ['whispering-dunes',     'Whispering Dunes',      'sfd', 0],
+  ['wuju-monastery',       'Wuju Monastery',        'sfd', 0],
+  ['yordle-glade',         'Yordle Glade',          'sfd', 0],
+  ['zaunite-undercity',    'Zaunite Undercity',     'sfd', 0],
+  // Unleashed
+  ['ancient-henge',        'Ancient Henge',         'unl', 0],
+  ['arena-bar',            'Arena Bar',             'unl', 0],
+  ['celestial-altar',      'Celestial Altar',       'unl', 0],
+  ['corrupted-grove',      'Corrupted Grove',       'unl', 0],
+  ['crystal-scar',         'Crystal Scar',          'unl', 0],
+  ['demonic-shrine',       'Demonic Shrine',        'unl', 0],
+  ['draktharr-arena',      "Drak'tharr Arena",      'unl', 0],
+  ['forgotten-depths',     'Forgotten Depths',      'unl', 0],
+  ['grand-plaza',          'Grand Plaza',           'unl', 0],
+  ['iron-harbor',          'Iron Harbor',           'unl', 0],
+  ['noxian-coliseum',      'Noxian Coliseum',       'unl', 0],
+  ['piltover-academy',     'Piltover Academy',      'unl', 0],
+  ['shuriman-ruins',       'Shuriman Ruins',        'unl', 0],
+  ['stoneborn-ridge',      'Stoneborn Ridge',       'unl', 0],
+  ['sunken-temple',        'Sunken Temple',         'unl', 0],
+  ['targonian-peak',       'Targonian Peak',        'unl', 0],
+  ['void-rift',            'Void Rift',             'unl', 0],
+];
+const battlefieldById = Object.fromEntries(BATTLEFIELDS.map(b => [b[0], b]));
 function getColors(playerIndex) {
   const lid = legends[playerIndex];
   if (!lid) return { a:'#12103a', b:'#1a1650', mid:'#2a2060', pip:'#4a3fa0', pip2:'#4a3fa0', ring:'#5a4fc0' };
@@ -768,8 +908,17 @@ function renderPanels() {
     flipBtn.className='btn-flip'; flipBtn.textContent='⇅ Flip Side';
     flipBtn.addEventListener('click', ()=>{flipped[i]=!flipped[i];renderPanels();});
 
+    // Battlefield button
+    const bfBtn = document.createElement('button');
+    const bfid = battlefields[i];
+    const isAspirант = bfid === 'aspirants-climb';
+    bfBtn.className = 'btn-battlefield' + (bfid ? ' has-battlefield' : '') + (isAspirант ? ' has-aspirant' : '');
+    bfBtn.textContent = bfid ? battlefieldById[bfid][1] : '⛰ Choose Battlefield';
+    bfBtn.addEventListener('click', ()=>openBfModal(i));
+
     lb.appendChild(inp); lb.appendChild(lbl); lb.appendChild(legendBtn);
     if (legends[i]) { lb.appendChild(badgeRow); lb.appendChild(champEl); }
+    lb.appendChild(bfBtn);
     lb.appendChild(flipBtn);
 
     // Score column
@@ -833,6 +982,71 @@ function renderPanels() {
     panel.appendChild(lb); panel.appendChild(sc); panel.appendChild(lp);
   }
 }
+
+// ── Battlefield Modal ─────────────────────────────────────────────────────────
+let bfModalTarget = 0;
+
+function openBfModal(playerIndex) {
+  bfModalTarget = playerIndex;
+  document.getElementById('bf-search').value = '';
+  filterBattlefields();
+  document.getElementById('battlefield-modal').classList.add('open');
+  setTimeout(() => document.getElementById('bf-search').focus(), 50);
+}
+
+function closeBfModal() {
+  document.getElementById('battlefield-modal').classList.remove('open');
+}
+
+function clearBattlefield() {
+  battlefields[bfModalTarget] = null;
+  computeWinTarget();
+  closeBfModal();
+  renderPanels();
+}
+
+function selectBattlefield(bid) {
+  battlefields[bfModalTarget] = bid;
+  computeWinTarget();
+  closeBfModal();
+  renderPanels();
+}
+
+function filterBattlefields() {
+  const q = document.getElementById('bf-search').value.toLowerCase().trim();
+  const list = document.getElementById('bf-list');
+  list.innerHTML = '';
+  const SET_LABELS = { ogn: 'Origins', sfd: 'Spiritforged', unl: 'Unleashed' };
+  const filtered = q ? BATTLEFIELDS.filter(b => b[1].toLowerCase().includes(q) || SET_LABELS[b[2]].toLowerCase().includes(q)) : BATTLEFIELDS;
+
+  // Always show Aspirant's Climb first if not filtering
+  const sorted = q ? filtered : [
+    ...filtered.filter(b => b[3] > 0),
+    ...filtered.filter(b => b[3] === 0),
+  ];
+
+  sorted.forEach(([bid, name, set, vpMod]) => {
+    const row = document.createElement('div');
+    const isAsp = vpMod > 0;
+    row.className = 'bf-row' + (battlefields[bfModalTarget] === bid ? ' selected' : '') + (isAsp ? ' aspirant-row' : '');
+    row.innerHTML = `
+      <span class="bf-name">${name}</span>
+      <span class="bf-set">${SET_LABELS[set]}</span>
+      ${isAsp ? `<span class="bf-badge">+${vpMod} Victory Score</span>` : ''}
+    `;
+    row.addEventListener('click', () => selectBattlefield(bid));
+    list.appendChild(row);
+  });
+
+  if (sorted.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-family:Crimson Pro,serif;font-style:italic;color:rgba(255,255,255,0.25);font-size:0.82rem;padding:12px;text-align:center;';
+    empty.textContent = 'No battlefields found';
+    list.appendChild(empty);
+  }
+}
+
+document.getElementById('battlefield-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeBfModal(); });
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 function openModal(playerIndex) {
@@ -917,7 +1131,7 @@ function filterLegends() {
 
 // Close modal on backdrop click
 document.getElementById('legend-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
-document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
+document.addEventListener('keydown', e => { if (e.key==='Escape') { closeModal(); closeBfModal(); } });
 
 // ── Score ─────────────────────────────────────────────────────────────────────
 function changeScore(i, delta, action) {
@@ -936,8 +1150,21 @@ function changeScore(i, delta, action) {
   }
 }
 
-function setWinTarget(v){ baseWinTarget=parseInt(v); winTarget=baseWinTarget+(aspirantsClimb?1:0); renderPanels(); }
-function toggleAspiranton(el){ aspirantsClimb=el.checked; winTarget=baseWinTarget+(aspirantsClimb?1:0); renderPanels(); }
+function computeWinTarget() {
+  const bonus = battlefields.reduce((sum, bid) => {
+    if (!bid) return sum;
+    const bf = battlefieldById[bid];
+    return sum + (bf ? bf[3] : 0);
+  }, 0);
+  winTarget = baseWinTarget + bonus;
+}
+
+function setWinTarget(v){ baseWinTarget=parseInt(v); computeWinTarget(); renderPanels(); }
+function setBattlefield(playerIndex, bid) {
+  battlefields[playerIndex] = bid || null;
+  computeWinTarget();
+  renderPanels();
+}
 
 function showWinner(name, pi) {
   document.getElementById('winner-name').textContent=name;
@@ -951,9 +1178,8 @@ function closeWinner(){ document.getElementById('winner-overlay').classList.remo
 
 function resetScores(){
   scores=[0,0]; logs=[[],[]]; winnerShown=false;
-  aspirantsClimb=false; winTarget=baseWinTarget;
+  battlefields=[null,null]; winTarget=baseWinTarget;
   champions=['',''];
-  const cb=document.getElementById('aspirant-check'); if(cb) cb.checked=false;
   document.getElementById('winner-overlay').classList.remove('show');
   renderPanels();
 }
