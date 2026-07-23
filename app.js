@@ -109,13 +109,13 @@ function renderPanels() {
     panel.innerHTML = '';
     const c = getColors(i);
 
-    panel.appendChild(buildLeftBlock(i, s));
+    panel.appendChild(buildLeftBlock(i));
     panel.appendChild(buildScoreColumn(i, s, c, atFinal));
     panel.appendChild(buildLogPanel(i));
   }
 }
 
-function buildLeftBlock(i, s) {
+function buildLeftBlock(i) {
   const lb = document.createElement('div');
   lb.className = 'left-block';
 
@@ -203,14 +203,14 @@ function buildScoreColumn(i, s, c, atFinal) {
   const sc = document.createElement('div');
   sc.className = 'score-col';
 
-  sc.appendChild(buildVpDisplay(i, s, c, atFinal));
+  sc.appendChild(buildVpDisplay(i, s, atFinal));
   sc.appendChild(buildPipRow(s, c));
   sc.appendChild(buildScoreButtons(i, s));
 
   return sc;
 }
 
-function buildVpDisplay(i, s, c, atFinal) {
+function buildVpDisplay(i, s, atFinal) {
   const vd = document.createElement('div');
   vd.className = 'vp-display';
 
@@ -377,10 +377,62 @@ function changeScore(i, delta, action) {
   }
 }
 
-// ── Winner overlay ────────────────────────────────────────────────────────
+// ── Win target / reset controls ──────────────────────────────────────────
+function setWinTarget(v) {
+  winTarget = parseInt(v, 10);
+  renderPanels();
+}
+
+function resetScores() {
+  scores = [0, 0];
+  logs = [[], []];
+  winnerShown = false;
+  battlefields = [null, null];
+  champions = ['', ''];
+  document.getElementById('winner-overlay').classList.remove('show');
+  renderPanels();
+}
+
+// ── Winner overlay + particle celebration ────────────────────────────────
 function showWinner(name, playerIndex) {
   document.getElementById('winner-name').textContent = name;
   document.getElementById('winner-overlay').classList.add('show');
 
   const c = getColors(playerIndex);
-  const colors = [c.pip || '#c9a84c
+  const colors = [c.pip || '#c9a84c', c.pip2 || '#f0c94a', c.ring || '#c9a84c', '#ffffff', '#c9a84c'];
+  const container = document.getElementById('particles');
+
+  for (let i = 0; i < 70; i++) {
+    setTimeout(() => {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.style.left = Math.random() * 100 + 'vw';
+      p.style.bottom = '0';
+      p.style.background = colors[Math.floor(Math.random() * colors.length)];
+      p.style.width = p.style.height = (3 + Math.random() * 5) + 'px';
+      p.style.animationDuration = (2.5 + Math.random() * 2.5) + 's';
+      container.appendChild(p);
+      setTimeout(() => p.remove(), 6000);
+    }, i * 35);
+  }
+}
+
+function closeWinner() {
+  document.getElementById('winner-overlay').classList.remove('show');
+}
+
+// ── Global control wiring ────────────────────────────────────────────────
+document.getElementById('mode-select').addEventListener('change', (e) => {
+  setWinTarget(e.target.value);
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  resetScores();
+});
+
+document.getElementById('winner-close-btn').addEventListener('click', () => {
+  closeWinner();
+});
+
+// ── Initial render ────────────────────────────────────────────────────────
+renderPanels();
