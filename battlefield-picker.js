@@ -45,3 +45,9 @@ export class BattlefieldPicker {
       emptyMessage: 'No battlefields found',
     });
   }
+
+  open(playerIndex, currentBattlefieldId) {
+    this.playerIndex = playerIndex;
+    this.modal.open({ items: BATTLEFIELDS, selectedId: currentBattlefieldId, context: playerIndex });
+  }
+}
