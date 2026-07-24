@@ -65,6 +65,18 @@ export const BATTLEFIELDS = [
   ['sunken-temple',          'Sunken Temple',           'unl'],
   ['targonian-peak',         'Targonian Peak',          'unl'],
   ['void-rift',              'Void Rift',               'unl'],
+
+  // Vendetta (ven)
+  ['dragon-roost',           'Dragon Roost',             'ven'],
+  ['heisho-shell-of-the-world', "Heisho - Shell of the World", 'ven'],
+  ['kinkou-temple',          'Kinkou Temple',            'ven'],
+  ['mystic-vortex',          'Mystic Vortex',            'ven'],
+  ['piltovan-forge',         'Piltovan Forge',           'ven'],
+  ['protective-sands',       'Protective Sands',         'ven'],
+  ['risen-altar',            'Risen Altar',              'ven'],
+  ['sandswept-tomb',         'Sandswept Tomb',           'ven'],
+  ['shadow-temple',          'Shadow Temple',            'ven'],
+  ['threshold-of-the-gray',  'Threshold of the Gray',    'ven'],
 ];
 
 export const battlefieldById = Object.fromEntries(BATTLEFIELDS.map((b) => [b[0], b]));

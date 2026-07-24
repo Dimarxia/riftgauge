@@ -45,4 +45,14 @@ export const CHAMPIONS = {
   leblanc:        ['Everywhere at Once', 'Fragmented'],
   khazix:         ['Evolving Hunter', 'Mutating Horror'],
   poppy:          ['Paragon', 'Defender of the Meek'],
+  // Vendetta
+  akali:          ['Deadly Weapon', 'Silent'],
+  renekton:       ['Rage Fueled', 'Brute'],
+  zed:            ['From the Shadows', 'Without a Sound'],
+  nasus:          ['Ascended', 'Guardian of Knowledge'],
+  shen:           ['Scourge of Shadows', 'Leader of the Kinkou Order'],
+  jayce:          ['Brilliant Inventor', 'Hammer in Hand'],
+  mel:            ['Newly Awakened', 'Defiant Soul'],
+  ambessa:        ['The Wolf', 'Respected and Feared'],
+  kennen:         ['Storm of Shuriken', 'Keeper of Balance'],
 };

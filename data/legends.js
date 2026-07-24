@@ -45,6 +45,16 @@ export const LEGENDS = [
   ['leblanc',      'LeBlanc',       'Deceiver',                'mind',  'order'], // unl-199
   ['khazix',       "Kha'Zix",       'Voidreaver',              'body',  'chaos'], // unl-201
   ['poppy',        'Poppy',         'Keeper of the Hammer',    'body',  'order'], // unl-203
+  // Vendetta (ven)
+  ['akali',        'Akali',         'Rogue Assassin',          'fury',  'calm' ], // ven-139
+  ['renekton',     'Renekton',      'Butcher of the Sands',    'fury',  'body' ], // ven-141
+  ['zed',          'Zed',           'Master of Shadows',       'fury',  'chaos'], // ven-143
+  ['nasus',        'Nasus',         'Curator of the Sands',    'calm',  'mind' ], // ven-145
+  ['shen',         'Shen',          'Eye of Twilight',         'calm',  'order'], // ven-147
+  ['jayce',        'Jayce',         'Defender of Tomorrow',    'mind',  'body' ], // ven-149
+  ['mel',          'Mel',           "Soul's Reflection",       'mind',  'chaos'], // ven-151
+  ['ambessa',      'Ambessa',       'Matriarch of War',        'body',  'order'], // ven-153
+  ['kennen',       'Kennen',        'Heart of the Tempest',    'order', 'chaos'], // ven-155
 ];
 
 export const legendById = Object.fromEntries(LEGENDS.map((l) => [l[0], l]));
