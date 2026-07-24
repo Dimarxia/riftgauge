@@ -492,3 +492,23 @@
   #particles { position:fixed; inset:0; pointer-events:none; z-index:299; overflow:hidden; }
   .particle { position:absolute; border-radius:50%; opacity:0; animation:particle-float linear forwards; }
   @keyframes particle-float { 0%{opacity:0;transform:translateY(0) rotate(0deg)} 10%{opacity:1} 90%{opacity:0.6} 100%{opacity:0;transform:translateY(-100vh) rotate(720deg)} }
+
+  /* ── RESPONSIVE: NARROW / PORTRAIT ── */
+  /* The player-panel's 3-column row (name/legend block, VP dial, event log)
+     needs ~480px of width to breathe. Below that, stack the columns and let
+     the half scroll instead of squeezing everything into an unreadable row. */
+  @media (max-width: 700px) {
+    .half { overflow-y: auto; overflow-x: hidden; align-items: flex-start; }
+    .player-panel {
+      flex-direction: column;
+      height: auto; min-height: 100%;
+      gap: clamp(8px, 2vh, 16px);
+      padding: clamp(10px, 2vh, 16px) clamp(10px, 4vw, 20px);
+    }
+    .left-block { width: 100%; min-width: 0; }
+    .score-col { width: 100%; }
+    .log-panel {
+      width: 100%; height: auto; min-height: 90px;
+      align-self: stretch; flex: 1 1 auto;
+    }
+  }
