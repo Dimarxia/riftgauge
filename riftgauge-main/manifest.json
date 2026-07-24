@@ -1,0 +1,19 @@
+{
+  "name": "RiftGauge",
+  "short_name": "RiftGauge",
+  "description": "Riftbound Victory Point Tracker",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#06040f",
+  "theme_color": "#06040f",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
