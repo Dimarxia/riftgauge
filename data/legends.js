@@ -1,4 +1,4 @@
-/ data/legends.js
+// data/legends.js
 // Legend roster. Tuple shape: [id, name, title, domain1, domain2]
 
 export const LEGENDS = [
