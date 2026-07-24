@@ -1,7 +1,7 @@
 // sw.js — RiftGauge Service Worker
 // Caches all app shell files for offline use, plus Google Fonts.
 
-const CACHE = 'riftgauge-v2'; // bump this version string on any deploy that changes cached files
+const CACHE = 'riftgauge-v3'; // bump this version string on any deploy that changes cached files
 
 const APP_SHELL = [
   './',
