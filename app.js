@@ -1,5 +1,12 @@
 // app.js — RiftGauge application entry point
 // Handles state, rendering, scoring, and wiring for the two picker modals.
+//
+// Rendering strategy (touch-first):
+//   • buildPanel(i)  — full DOM build; runs only on STRUCTURAL changes
+//     (legend confirm/clear, battlefield select, mode change, reset).
+//   • updateScores() / updateXp(i) / prependLogEntry(i) — patch the existing
+//     DOM in place for high-frequency actions. Buttons are never destroyed
+//     mid-interaction, so rapid tapping on a touch screen never drops taps.
 
 import { DOMAINS } from './data/domains.js';
 import { legendById } from './data/legends.js';
@@ -16,8 +23,20 @@ let champions      = ['', ''];
 let battlefields   = [null, null];   // cosmetic only
 let flipped        = [false, false];
 let logs           = [[], []];
+let xp             = [0, 0];
 let winnerShown    = false;
 const defaultNames = ['Champion Alpha', 'Champion Beta'];
+
+// Per-panel cached DOM refs (vpFill, pips, buttons, …); rebuilt by buildPanel().
+const refs = [null, null];
+
+const SVG_NS          = 'http://www.w3.org/2000/svg';
+const RING_R          = 52;
+const RING_CIRC       = 2 * Math.PI * RING_R;
+const MAX_LOG_ENTRIES = 50;
+
+const ACTION_CLASS = { hold: 'log-action-hold', conquer: 'log-action-conquer', card: 'log-action-card', remove: 'log-action-remove' };
+const ACTION_VERB  = { hold: 'Held battlefield', conquer: 'Conquered', card: 'Card effect', remove: 'Removed VP' };
 
 // ── Pickers ───────────────────────────────────────────────────────────────
 const legendPicker = new LegendPicker({
@@ -55,12 +74,18 @@ function getColors(playerIndex) {
   return { a: d1.colorA, b: d2.colorA, mid: d1.colorB, b2: d2.colorB, pip: d1.pip, pip2: d2.pip, ring: d1.colorB };
 }
 
+const blendCache = new Map();
 function blendColors(hex1, hex2, t) {
+  const key = `${hex1}|${hex2}|${t}`;
+  const hit = blendCache.get(key);
+  if (hit) return hit;
   const parse = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
   const [r1, g1, b1] = parse(hex1);
   const [r2, g2, b2] = parse(hex2);
   const mix = (a, b) => Math.round(a + (b - a) * t).toString(16).padStart(2, '0');
-  return `#${mix(r1, r2)}${mix(g1, g2)}${mix(b1, b2)}`;
+  const out = `#${mix(r1, r2)}${mix(g1, g2)}${mix(b1, b2)}`;
+  blendCache.set(key, out);
+  return out;
 }
 
 function buildHalfBg(i) {
@@ -82,40 +107,44 @@ function buildRingGradient(i, isDanger) {
   let g = document.getElementById(uid);
   if (!g) {
     const defs = document.querySelector('svg defs');
-    g = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+    g = document.createElementNS(SVG_NS, 'linearGradient');
     g.setAttribute('id', uid);
     g.setAttribute('x1', '0%'); g.setAttribute('y1', '0%');
     g.setAttribute('x2', '100%'); g.setAttribute('y2', '100%');
     defs.appendChild(g);
   }
-  g.innerHTML = `<stop offset="0%" style="stop-color:${c.ring}"/><stop offset="100%" style="stop-color:${c.pip2}"/>`;
+  // Only rewrite the stops when the colors actually change.
+  const key = `${c.ring}|${c.pip2}`;
+  if (g.dataset.key !== key) {
+    g.dataset.key = key;
+    g.innerHTML = `<stop offset="0%" style="stop-color:${c.ring}"/><stop offset="100%" style="stop-color:${c.pip2}"/>`;
+  }
   return `url(#${uid})`;
 }
 
-// ── Render ────────────────────────────────────────────────────────────────
+// ── Structural build (rare) ───────────────────────────────────────────────
 function renderPanels() {
-  const maxScore = Math.max(...scores);
-
-  for (let i = 0; i < 2; i++) {
-    const s = scores[i];
-    const isWinning = s === maxScore && s > 0;
-    const atFinal = s === winTarget - 1 && !isWinning;
-
-    const half = document.getElementById(`half-${i}`);
-    half.className = `half ${i === 0 ? 'top' : 'bottom'}${flipped[i] ? ' flipped' : ''}${atFinal ? ' at-final' : ''}`;
-    buildHalfBg(i);
-
-    const panel = document.getElementById(`panel-${i}`);
-    panel.innerHTML = '';
-    const c = getColors(i);
-
-    panel.appendChild(buildLeftBlock(i));
-    panel.appendChild(buildScoreColumn(i, s, c, atFinal));
-    panel.appendChild(buildLogPanel(i));
-  }
+  buildPanel(0);
+  buildPanel(1);
+  updateScores();
 }
 
-function buildLeftBlock(i) {
+function buildPanel(i) {
+  const half = document.getElementById(`half-${i}`);
+  half.classList.toggle('flipped', flipped[i]);
+  buildHalfBg(i);
+
+  const panel = document.getElementById(`panel-${i}`);
+  panel.textContent = '';
+
+  const r = (refs[i] = { half });
+  panel.append(buildLeftBlock(i, r), buildScoreColumn(i, r), buildLogPanel(i, r));
+
+  rebuildLog(i);
+  updateXp(i);
+}
+
+function buildLeftBlock(i, r) {
   const lb = document.createElement('div');
   lb.className = 'left-block';
 
@@ -125,8 +154,8 @@ function buildLeftBlock(i) {
   nameInput.value = names[i];
   nameInput.placeholder = defaultNames[i];
   nameInput.maxLength = 24;
+  nameInput.setAttribute('aria-label', `Player ${i + 1} name`);
   nameInput.addEventListener('input', (e) => { names[i] = e.target.value; });
-  nameInput.addEventListener('blur', () => renderPanels());
 
   const label = document.createElement('div');
   label.className = 'player-label';
@@ -138,18 +167,13 @@ function buildLeftBlock(i) {
   legendBtn.textContent = legends[i] ? legendById[legends[i]][1] : '⚔ Choose Legend';
   legendBtn.addEventListener('click', () => legendPicker.open(i, legends[i]));
 
-  lb.appendChild(nameInput);
-  lb.appendChild(label);
-  lb.appendChild(legendBtn);
+  lb.append(nameInput, label, legendBtn);
 
   if (legends[i]) {
-    lb.appendChild(buildDomainBadges(legends[i]));
-    lb.appendChild(buildChosenChampion(i));
+    lb.append(buildDomainBadges(legends[i]), buildChosenChampion(i));
   }
 
-  lb.appendChild(buildBattlefieldButton(i));
-  lb.appendChild(buildFlipButton(i));
-
+  lb.append(buildBattlefieldButton(i), buildFlipButton(i), buildXpTracker(i, r));
   return lb;
 }
 
@@ -192,48 +216,69 @@ function buildFlipButton(i) {
   btn.type = 'button';
   btn.className = 'btn-flip';
   btn.textContent = '⇅ Flip Side';
+  // Flipping is just a class toggle — no rebuild needed.
   btn.addEventListener('click', () => {
     flipped[i] = !flipped[i];
-    renderPanels();
+    refs[i].half.classList.toggle('flipped', flipped[i]);
   });
   return btn;
 }
 
-function buildScoreColumn(i, s, c, atFinal) {
+function buildXpTracker(i, r) {
+  const wrap = document.createElement('div');
+  wrap.className = 'xp-tracker';
+
+  const label = document.createElement('div');
+  label.className = 'xp-label';
+  label.textContent = 'XP';
+
+  const minus = document.createElement('button');
+  minus.type = 'button';
+  minus.className = 'xp-btn xp-minus';
+  minus.textContent = '−';
+  minus.title = 'Remove XP';
+  minus.setAttribute('aria-label', `Player ${i + 1}: remove XP`);
+  minus.addEventListener('click', () => changeXp(i, -1));
+
+  const value = document.createElement('div');
+  value.className = 'xp-value';
+
+  const plus = document.createElement('button');
+  plus.type = 'button';
+  plus.className = 'xp-btn xp-plus';
+  plus.textContent = '+';
+  plus.title = 'Add XP';
+  plus.setAttribute('aria-label', `Player ${i + 1}: add XP`);
+  plus.addEventListener('click', () => changeXp(i, 1));
+
+  wrap.append(label, minus, value, plus);
+  r.xpMinus = minus;
+  r.xpValue = value;
+  return wrap;
+}
+
+function buildScoreColumn(i, r) {
   const sc = document.createElement('div');
   sc.className = 'score-col';
 
-  sc.appendChild(buildVpDisplay(i, s, atFinal));
-  sc.appendChild(buildPipRow(s, c));
-  sc.appendChild(buildScoreButtons(i, s));
-
-  return sc;
-}
-
-function buildVpDisplay(i, s, atFinal) {
+  // VP dial
   const vd = document.createElement('div');
   vd.className = 'vp-display';
 
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('viewBox', '0 0 120 120');
   svg.classList.add('vp-svg');
 
-  const r = 52, circ = 2 * Math.PI * r;
-  const offset = circ * (1 - Math.min(s / winTarget, 1));
-
-  const track = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  track.setAttribute('cx', 60); track.setAttribute('cy', 60); track.setAttribute('r', r);
+  const track = document.createElementNS(SVG_NS, 'circle');
+  track.setAttribute('cx', 60); track.setAttribute('cy', 60); track.setAttribute('r', RING_R);
   track.classList.add('vp-track');
 
-  const fill = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  fill.setAttribute('cx', 60); fill.setAttribute('cy', 60); fill.setAttribute('r', r);
+  const fill = document.createElementNS(SVG_NS, 'circle');
+  fill.setAttribute('cx', 60); fill.setAttribute('cy', 60); fill.setAttribute('r', RING_R);
   fill.classList.add('vp-fill');
-  fill.style.strokeDasharray = circ;
-  fill.style.strokeDashoffset = offset;
-  fill.setAttribute('stroke', buildRingGradient(i, atFinal || s >= winTarget));
+  fill.style.strokeDasharray = RING_CIRC;
 
-  svg.appendChild(track);
-  svg.appendChild(fill);
+  svg.append(track, fill);
   vd.appendChild(svg);
 
   const inner = document.createElement('div');
@@ -241,87 +286,72 @@ function buildVpDisplay(i, s, atFinal) {
 
   const num = document.createElement('div');
   num.className = 'vp-number';
-  num.textContent = s;
+  num.setAttribute('aria-live', 'polite');
 
   const max = document.createElement('div');
   max.className = 'vp-max';
-  max.textContent = `/ ${winTarget} vp`;
 
-  inner.appendChild(num);
-  inner.appendChild(max);
+  inner.append(num, max);
   vd.appendChild(inner);
 
-  return vd;
-}
-
-function buildPipRow(s, c) {
-  const row = document.createElement('div');
-  row.className = 'pip-row';
-
+  // Pips (count follows winTarget; mode changes trigger a full rebuild)
+  const pipRow = document.createElement('div');
+  pipRow.className = 'pip-row';
+  const pips = [];
   for (let p = 0; p < winTarget; p++) {
     const pip = document.createElement('div');
-    const isFinal = p === winTarget - 1 && s >= winTarget;
-    const isFilled = p < s;
-    pip.className = 'pip' + (isFinal ? ' final' : isFilled ? ' filled' : '');
-
-    if (isFilled && !isFinal) {
-      const t = winTarget > 1 ? p / (winTarget - 1) : 0;
-      const color = blendColors(c.pip, c.pip2, t);
-      pip.style.background = color;
-      pip.style.borderColor = color;
-      pip.style.boxShadow = `0 0 5px ${color}80`;
-    }
-    row.appendChild(pip);
+    pip.className = 'pip';
+    pipRow.appendChild(pip);
+    pips.push(pip);
   }
 
-  return row;
-}
-
-function buildScoreButtons(i, s) {
-  const wrap = document.createElement('div');
-  wrap.className = 'vp-btns';
+  // Score buttons
+  const btns = document.createElement('div');
+  btns.className = 'vp-btns';
 
   const minus = document.createElement('button');
   minus.type = 'button';
   minus.className = 'vp-btn minus';
   minus.textContent = '−';
   minus.title = 'Remove VP';
-  minus.disabled = s <= 0;
+  minus.setAttribute('aria-label', `Player ${i + 1}: remove VP`);
   minus.addEventListener('click', () => changeScore(i, -1, 'remove'));
 
-  const hold = document.createElement('button');
-  hold.type = 'button';
-  hold.className = 'vp-btn hold';
-  hold.disabled = s >= winTarget;
-  hold.title = 'Score: Hold Battlefield';
-  hold.innerHTML = '<span class="btn-icon">⚑</span><span class="btn-label">Hold</span>';
-  hold.addEventListener('click', () => changeScore(i, 1, 'hold'));
+  const hold    = makeScoreButton(i, 'hold', '⚑', 'Hold', 'Score: Hold Battlefield');
+  const conquer = makeScoreButton(i, 'conquer', '⚔', 'Conquer', 'Score: Conquer Battlefield');
+  const card    = makeScoreButton(i, 'card', '✦', 'Card', 'Score: Card Effect');
 
-  const conquer = document.createElement('button');
-  conquer.type = 'button';
-  conquer.className = 'vp-btn conquer';
-  conquer.disabled = s >= winTarget;
-  conquer.title = 'Score: Conquer Battlefield';
-  conquer.innerHTML = '<span class="btn-icon">⚔</span><span class="btn-label">Conquer</span>';
-  conquer.addEventListener('click', () => changeScore(i, 1, 'conquer'));
+  btns.append(minus, hold, conquer, card);
+  sc.append(vd, pipRow, btns);
 
-  const cardEffect = document.createElement('button');
-  cardEffect.type = 'button';
-  cardEffect.className = 'vp-btn card-effect';
-  cardEffect.disabled = s >= winTarget;
-  cardEffect.title = 'Score: Card Effect';
-  cardEffect.innerHTML = '<span class="btn-icon">✦</span><span class="btn-label">Card</span>';
-  cardEffect.addEventListener('click', () => changeScore(i, 1, 'card'));
-
-  wrap.appendChild(minus);
-  wrap.appendChild(hold);
-  wrap.appendChild(conquer);
-  wrap.appendChild(cardEffect);
-
-  return wrap;
+  Object.assign(r, {
+    vpFill: fill, vpNumber: num, vpMax: max, pips,
+    btnMinus: minus, btnHold: hold, btnConquer: conquer, btnCard: card,
+  });
+  return sc;
 }
 
-function buildLogPanel(i) {
+function makeScoreButton(i, action, icon, label, title) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = `vp-btn ${action === 'card' ? 'card-effect' : action}`;
+  btn.title = title;
+  btn.setAttribute('aria-label', `Player ${i + 1} — ${title}`);
+
+  const ic = document.createElement('span');
+  ic.className = 'btn-icon';
+  ic.textContent = icon;
+
+  const lb = document.createElement('span');
+  lb.className = 'btn-label';
+  lb.textContent = label;
+
+  btn.append(ic, lb);
+  btn.addEventListener('click', () => changeScore(i, 1, action));
+  return btn;
+}
+
+function buildLogPanel(i, r) {
   const lp = document.createElement('div');
   lp.className = 'log-panel';
 
@@ -332,30 +362,110 @@ function buildLogPanel(i) {
   const entries = document.createElement('div');
   entries.className = 'log-entries';
 
+  lp.append(title, entries);
+  r.logEntries = entries;
+  return lp;
+}
+
+// ── In-place updates (hot path — no DOM teardown) ────────────────────────
+function updateScores() {
+  const maxScore = Math.max(...scores);
+
+  for (let i = 0; i < 2; i++) {
+    const r = refs[i];
+    if (!r) continue;
+
+    const s = scores[i];
+    const isWinning = s === maxScore && s > 0;
+    const atFinal = s === winTarget - 1 && !isWinning;
+    const c = getColors(i);
+
+    r.half.classList.toggle('at-final', atFinal);
+
+    r.vpNumber.textContent = s;
+    r.vpMax.textContent = `/ ${winTarget} vp`;
+    r.vpFill.style.strokeDashoffset = RING_CIRC * (1 - Math.min(s / winTarget, 1));
+    r.vpFill.setAttribute('stroke', buildRingGradient(i, atFinal || s >= winTarget));
+
+    r.pips.forEach((pip, p) => {
+      const isFinal = p === winTarget - 1 && s >= winTarget;
+      const isFilled = p < s;
+      pip.className = 'pip' + (isFinal ? ' final' : isFilled ? ' filled' : '');
+      if (isFilled && !isFinal) {
+        const t = winTarget > 1 ? p / (winTarget - 1) : 0;
+        const color = blendColors(c.pip, c.pip2, t);
+        pip.style.background = color;
+        pip.style.borderColor = color;
+        pip.style.boxShadow = `0 0 5px ${color}80`;
+      } else {
+        pip.style.background = '';
+        pip.style.borderColor = '';
+        pip.style.boxShadow = '';
+      }
+    });
+
+    const capped = s >= winTarget;
+    r.btnMinus.disabled = s <= 0;
+    r.btnHold.disabled = capped;
+    r.btnConquer.disabled = capped;
+    r.btnCard.disabled = capped;
+  }
+}
+
+function updateXp(i) {
+  const r = refs[i];
+  if (!r) return;
+  r.xpValue.textContent = xp[i];
+  r.xpMinus.disabled = xp[i] <= 0;
+}
+
+function makeLogEntryEl(entry) {
+  const el = document.createElement('div');
+  el.className = 'log-entry';
+
+  const ts = document.createElement('span');
+  ts.className = 'log-ts';
+  ts.textContent = entry.ts;
+
+  const act = document.createElement('span');
+  act.className = ACTION_CLASS[entry.action];
+  act.textContent = ACTION_VERB[entry.action];
+
+  const score = document.createElement('span');
+  score.className = 'log-score';
+  score.textContent = `${entry.score} VP`;
+
+  el.append(ts, act, document.createTextNode(' — '), score);
+  return el;
+}
+
+function prependLogEntry(i, entry) {
+  const r = refs[i];
+  if (!r) return;
+  const empty = r.logEntries.querySelector('.log-empty');
+  if (empty) empty.remove();
+  r.logEntries.prepend(makeLogEntryEl(entry));
+  while (r.logEntries.children.length > MAX_LOG_ENTRIES) {
+    r.logEntries.lastChild.remove();
+  }
+}
+
+function rebuildLog(i) {
+  const r = refs[i];
+  if (!r) return;
+  r.logEntries.textContent = '';
+
   if (logs[i].length === 0) {
     const empty = document.createElement('div');
     empty.className = 'log-empty';
     empty.textContent = 'No events yet';
-    entries.appendChild(empty);
-  } else {
-    const ACTION_CLASS = { hold: 'log-action-hold', conquer: 'log-action-conquer', card: 'log-action-card', remove: 'log-action-remove' };
-    const ACTION_VERB  = { hold: 'Held battlefield', conquer: 'Conquered', card: 'Card effect', remove: 'Removed VP' };
-
-    logs[i].forEach((entry) => {
-      const el = document.createElement('div');
-      el.className = 'log-entry';
-      el.innerHTML = `
-        <span class="log-ts">${entry.ts}</span>
-        <span class="${ACTION_CLASS[entry.action]}">${ACTION_VERB[entry.action]}</span>
-        — <span class="log-score">${entry.score} VP</span>
-      `;
-      entries.appendChild(el);
-    });
+    r.logEntries.appendChild(empty);
+    return;
   }
 
-  lp.appendChild(title);
-  lp.appendChild(entries);
-  return lp;
+  const frag = document.createDocumentFragment();
+  logs[i].forEach((entry) => frag.appendChild(makeLogEntryEl(entry)));
+  r.logEntries.appendChild(frag);
 }
 
 // ── Score logic ───────────────────────────────────────────────────────────
@@ -365,16 +475,25 @@ function changeScore(i, delta, action) {
   if (scores[i] === prev) return;
 
   const ts = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  logs[i].unshift({ action, score: scores[i], ts });
-  if (logs[i].length > 50) logs[i].pop();
+  const entry = { action, score: scores[i], ts };
+  logs[i].unshift(entry);
+  if (logs[i].length > MAX_LOG_ENTRIES) logs[i].pop();
 
-  renderPanels();
+  prependLogEntry(i, entry);
+  updateScores();
 
   if (scores[i] >= winTarget && !winnerShown) {
     winnerShown = true;
     const name = names[i] || defaultNames[i];
     setTimeout(() => showWinner(name, i), 300);
   }
+}
+
+// ── XP logic ──────────────────────────────────────────────────────────────
+function changeXp(i, delta) {
+  const prev = xp[i];
+  xp[i] = Math.max(0, xp[i] + delta);
+  if (xp[i] !== prev) updateXp(i);
 }
 
 // ── Win target / reset controls ──────────────────────────────────────────
@@ -386,6 +505,7 @@ function setWinTarget(v) {
 function resetScores() {
   scores = [0, 0];
   logs = [[], []];
+  xp = [0, 0];
   winnerShown = false;
   battlefields = [null, null];
   champions = ['', ''];
@@ -430,9 +550,29 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   resetScores();
 });
 
+// ── Background lightness toggle ─────────────────────────────────────────
+const BG_LEVELS = ['', 'bg-lighter-1', 'bg-lighter-2', 'bg-lighter-3'];
+const BG_STORAGE_KEY = 'riftgauge-bg-level';
+
+function applyBgLevel(level) {
+  BG_LEVELS.forEach((cls) => cls && document.body.classList.remove(cls));
+  if (level) document.body.classList.add(level);
+  document.getElementById('btn-lighten').classList.toggle('active', !!level);
+  localStorage.setItem(BG_STORAGE_KEY, level);
+}
+
+const savedBgLevel = localStorage.getItem(BG_STORAGE_KEY) || '';
+applyBgLevel(BG_LEVELS.includes(savedBgLevel) ? savedBgLevel : '');
+
+document.getElementById('btn-lighten').addEventListener('click', () => {
+  const current = BG_LEVELS.indexOf(document.body.className.split(' ').find((c) => c.startsWith('bg-lighter-')) || '');
+  const next = BG_LEVELS[(Math.max(current, 0) + 1) % BG_LEVELS.length];
+  applyBgLevel(next);
+});
+
 document.getElementById('winner-close-btn').addEventListener('click', () => {
   closeWinner();
 });
 
-// ── Initial render ────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────
 renderPanels();

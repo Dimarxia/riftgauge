@@ -4,7 +4,7 @@
 import { BATTLEFIELDS } from './data/battlefields.js';
 import { PickerModal } from './picker-modal.js';
 
-const SET_LABELS = { ogn: 'Origins', sfd: 'Spiritforged', unl: 'Unleashed' };
+const SET_LABELS = { ogn: 'Origins', sfd: 'Spiritforged', unl: 'Unleashed', ven: 'Vendetta' };
 
 function renderBattlefieldRow([, name, set], isSelected) {
   const row = document.createElement('div');

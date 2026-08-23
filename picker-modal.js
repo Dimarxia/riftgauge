@@ -51,7 +51,12 @@ export class PickerModal {
     this.searchEl.value = '';
     this._render();
     this.modalEl.classList.add('open');
-    setTimeout(() => this.searchEl.focus(), 50);
+    // Only auto-focus the search box on devices with a physical keyboard/mouse.
+    // On touch screens focusing immediately pops the on-screen keyboard over
+    // the list, hiding the options the user opened the modal to tap.
+    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      setTimeout(() => this.searchEl.focus(), 50);
+    }
   }
 
   close() {
@@ -67,13 +72,16 @@ export class PickerModal {
     const q = this.searchEl.value.toLowerCase().trim();
     const filtered = q ? this.items.filter((item) => this.filterFn(item, q)) : this.items;
 
-    this.listEl.innerHTML = '';
+    this.listEl.textContent = '';
 
+    // Batch rows into a fragment — one DOM insertion instead of one per row.
+    const frag = document.createDocumentFragment();
     filtered.forEach((item) => {
       const row = this.renderRow(item, item[0] === this.selectedId);
       row.addEventListener('click', () => this.onSelect(item));
-      this.listEl.appendChild(row);
+      frag.appendChild(row);
     });
+    this.listEl.appendChild(frag);
 
     if (filtered.length === 0) {
       const empty = document.createElement('div');

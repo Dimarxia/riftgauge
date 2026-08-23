@@ -1,7 +1,7 @@
 // sw.js — RiftGauge Service Worker
 // Caches all app shell files for offline use, plus Google Fonts.
 
-const CACHE = 'riftgauge-v7'; // bump this version string on any deploy that changes cached files
+const CACHE = 'riftgauge-v10'; // bump this version string on any deploy that changes cached files
 
 const APP_SHELL = [
   './',
@@ -57,10 +57,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first with network fallback for same-origin app shell files
+  // Network-first with cache fallback for same-origin app shell files.
+  // Always fresh when online (no stale-deploy problem); offline still works
+  // because every successful response re-populates the cache.
   if (url.startsWith(self.location.origin)) {
     event.respondWith(
-      caches.match(event.request).then((cached) => cached || fetch(event.request))
+      fetch(event.request)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+          return res;
+        })
+        .catch(() => caches.match(event.request))
     );
   }
 });
