@@ -55,4 +55,14 @@ export const CHAMPIONS = {
   mel:            ['Newly Awakened', 'Defiant Soul'],
   ambessa:        ['The Wolf', 'Respected and Feared'],
   kennen:         ['Storm of Shuriken', 'Keeper of Balance'],
+  // Radiance
+  seraphine:      ['Not Alone'],
+  ekko:           ['Ingenious'],
+  ziggs:          ['Short-Fused'],
+  ksante:         ['Dauntless', 'Courageous'],
+  evelynn:        ['Consuming', 'In Control'],
+  orianna:        ['Mechanical Marvel'],
+  jarvaniv:       ['Martial Paragon'],
+  mordekaiser:    ['Dominating', 'Twice Slain'],
+  riven:          ['Broken Blade'],
 };
